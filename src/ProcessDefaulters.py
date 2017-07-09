@@ -23,7 +23,6 @@ class ProcessDefaulters:
 		self.readText(filename)
 		self.listDefaulters()
 
-
 	def readText(self, filename):
 		""" 
 		Read the CSV file, initialize these as defaulter objects and

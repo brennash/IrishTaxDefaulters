@@ -11,6 +11,10 @@ class Defaulter:
 		self.fine         = 0.0
 		self.numCharges   = 0
 		self.line         = line
+		self.setCounties()
+
+
+		# Now process the names
 		self.setName(line)
 		self.setAddress(line)
 		self.setProfession(line)
@@ -78,9 +82,13 @@ class Defaulter:
 				self.name = line[0:validList[-1]].rstrip()
 
 	def setAddress(self, line):
-		countyList = self.getCountyList()
 
-		if len(self.name) == 0 and len(line) > 70:
+		if self.containsCounty(line):
+			nameIndex       = len(self.name)
+			addressStr      = line[nameIndex:].lstrip().rstrip()
+			addressEndIndex = self.getCountyIndex(addressStr)
+			self.address    = addressStr[0:addressEndIndex]
+		elif len(self.name) == 0 and len(line) > 70:
 			self.address = line[18:69].lstrip().rstrip()
 		else:
 			nameIndex  = len(self.name)
@@ -97,13 +105,27 @@ class Defaulter:
 						validList.append(index)
 				self.address = addressStr[0:validList[-1]].rstrip()
 
-		for county in countyList:
+		for county in self.countyList:
 			if county.upper() in self.address.upper():
 				self.county = county.upper()
 
 
-	def getCountyList(self):
-		countyList = ['CO. ANTRIM'
+	def containsCounty(self, line):
+		for county in self.countyList:
+			if county in line:
+				return True
+		return False
+
+	def getCountyIndex(self, line):
+		for county in self.countyList:
+			if county in line:
+				index = line.index(county)
+				index = index + len(county)
+				return index
+		return -1
+
+	def setCounties(self):
+		self.countyList = ['CO. ANTRIM'
 			,'CO. ARMAGH'
 			,'CO. CARLOW'
 			,'CO. CAVAN'
@@ -134,8 +156,28 @@ class Defaulter:
 			,'CO. WATERFORD'
 			,'CO. WESTMEATH'
 			,'CO. WEXFORD'
-			,'CO. WICKLOW']
-		return countyList
+			,'CO. WICKLOW'
+			,'DUBLIN 3'
+			,'DUBLIN 4'
+			,'DUBLIN 5'
+			,'DUBLIN 6'
+			,'DUBLIN 7'
+			,'DUBLIN 8'
+			,'DUBLIN 9'
+			,'DUBLIN 10'
+			,'DUBLIN 11'
+			,'DUBLIN 12'
+			,'DUBLIN 13'
+			,'DUBLIN 14'
+			,'DUBLIN 15'
+			,'DUBLIN 16'
+			,'DUBLIN 17'
+			,'DUBLIN 18'
+			,'DUBLIN 20'
+			,'DUBLIN 22'
+			,'DUBLIN 24'
+			,'DUBLIN 1'
+			,'DUBLIN 2']
 
 	def setProfession(self, line):
 

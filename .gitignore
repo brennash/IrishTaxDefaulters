@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Data elements
+*.pdf
+*.txt
+*.csv
+
 # Distribution / packaging
 .Python
 env/
@@ -13,6 +18,7 @@ build/
 develop-eggs/
 dist/
 downloads/
+src/test/
 eggs/
 .eggs/
 lib/
