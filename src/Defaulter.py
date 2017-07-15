@@ -12,7 +12,7 @@ class Defaulter:
 		self.numCharges   = 0
 		self.line         = line
 		self.setCounties()
-
+		self.chargeList   = []
 
 		# Now process the names
 		self.setName(line)
@@ -20,7 +20,10 @@ class Defaulter:
 		self.setProfession(line)
 
 	def update(self, line):
-
+		""" 
+		Function called to append details to multi-line entries in the 
+		input files. 
+		"""
 		nameIndexList = self.getIndex(self.name)
 		addressIndexList = self.getIndex(self.address)
 		professionIndexList = self.getIndex(self.profession)
@@ -200,6 +203,12 @@ class Defaulter:
 						validList.append(index)
 				self.profession = addressStr[0:validList[-1]].rstrip()
 
+	def addCharge(self, charge):
+		self.chargeList.append(charge)
+
+
+	def getChargeList(self):
+		return self.chargeList
 
 	def getStartIndex(self, line, startIndex):
 		charRegex = re.compile('[a-zA-Z0-9]')

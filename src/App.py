@@ -1,19 +1,16 @@
+import io
+import os
+import csv
+import re
+import json
+import smtplib
+import logging
+import datetime
 from flask import render_template
 from flask import session
 from flask import make_response, send_from_directory, redirect, url_for
 from flask import Flask, request, Response
 from functools import wraps
-import io
-import os
-import csv
-import datetime
-import re
-import json
-import smtplib
-import logging
-import pickle
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from logging.handlers import RotatingFileHandler
 
 # Setup the app, with a random secret key for the sessions
@@ -27,8 +24,8 @@ def index():
 	return render_template('index.html')
 
 # Page to select the weekly sales
-@app.route('/weekly_sales/', methods=['GET','POST'])
-def weeklySales():
+@app.route('/search/', methods=['GET','POST'])
+def search():
 	if request.method == 'GET':
 		reqIPAddr = request.remote_addr
 		app.logger.info('Weekly sales request (HTTP GET) from - {0}'.format(reqIPAddr))
@@ -47,4 +44,4 @@ if __name__ == '__main__':
 	handler.setFormatter(logging.Formatter(format))
 	handler.setLevel(logging.INFO)
 	app.logger.addHandler(handler)
-	app.run(host='0.0.0.0', port=1798, debug=True)
+	app.run(host='0.0.0.0', port=1916, debug=True)
