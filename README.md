@@ -1,6 +1,8 @@
 # IrishTaxDefaulters
 A searchable analytics tool of the Irish Tax Defaulters data
 
+![Alt text](src/static/img/screenshot.png?raw=true "Screenshot of Defaulters Dashboard")
+
 
 ## Data Download
 This tool relies totally on the publicly accessible data from the Irish tax authorities web-site, 

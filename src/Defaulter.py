@@ -206,7 +206,6 @@ class Defaulter:
 	def addCharge(self, charge):
 		self.chargeList.append(charge)
 
-
 	def getChargeList(self):
 		return self.chargeList
 

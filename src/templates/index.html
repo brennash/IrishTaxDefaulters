@@ -1,11 +1,91 @@
 <html>
-<head>
-<title>Irish Tax Defaulters</title>
-</head>
+  <head>
+    <title>Irish Tax Defaulters</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link href="https://fonts.googleapis.com/css?family=Amatic+SC" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/jquery-ui.css')}}"/>
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/materialize.min.css')}}"/>
+    <link href="https://fonts.googleapis.com/css?family=Special+Elite" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/jquery-2.1.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/materialize.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-ui.js') }}"></script>
+    <style>
+      b {
+        color: black;
+        font-family: 'Special Elite', cursive;
+        font-size: 26px;
+        font-weight: bold;
+      } 
 
 
-<body>
-<h1>Irish Tax Defaulters</h1>
+      .input-field input:focus + label {
+        color: #27AAE1 !important;
+      }
+
+      .row .input-field input:focus {
+        border-bottom: 1px solid #27AAE1 !important;
+        box-shadow: 0 1px 0 0 #27AAE1 !important
+      }
+    </style>
+
+    <script type="text/javascript">
+      $(function() {
+        $("#autocomplete").autocomplete({
+          source:function(request, response) {
+              $.getJSON("{{url_for('autocomplete')}}",{
+                  q: request.term, // in flask, "q" will be the argument to look for using request.args
+              }, function(data) {
+                  response(data.matching_results); // matching_results from jsonify
+              });
+          },
+          minLength: 2,
+          select: function(event, ui) {
+              console.log(ui.item.value); // not in your question, but might help later
+          }
+        });
+      })
+    </script>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="row" align="middle">
+        &nbsp;<br>
+        &nbsp;<br>
+        &nbsp;<br>
+        &nbsp;<br>
+      </div>  
+
+      <!--- The top header row --->
+      <div class="row" align="middle">
+        <div class="col s8 offset-s2" align="center">
+          <img src="{{ url_for('static', filename='img/logo.png') }}" height="75" align="middle">
+          &nbsp;&nbsp;&nbsp;
+          <b>Irish Tax Defaulters</b>
+        </div>
+      </div>
+
+      <div class="row" align="middle">
+        &nbsp;<br>
+      </div>     
+
+      <!--- The right hand menu --->
+      <div class="row" align="middle">
+        <form class="col s10" action="POST">
+          <div class="input-field col s6 offset-s3">
+            <input id="defaulter_search" type="text" class="validate">
+            <label for="defaulter_search">Defaulter Search</label>
+          </div>
+
+          <div class="input-field col s2">
+            <button class="btn blue waves-effect waves-light" type="submit" name="action">Search
+              <i class="material-icons right">send</i>
+            </button>
+          </div>
+        </div>
+      </div>
+
 </body>
 
 </html>

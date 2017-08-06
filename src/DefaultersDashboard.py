@@ -42,7 +42,15 @@ def index():
 	app.logger.info('User Agent Language: {0}'.format(request.user_agent.language))
 	app.logger.info('User Agent String: {0}'.format(request.user_agent.string))
 
-	return render_template('index.html', countdown=days)
+	return render_template('index.html')
+
+
+@app.route('/autocomplete', methods=['GET'])
+def autocomplete():
+	search = request.args.get('q')
+	query = db_session.query(Movie.title).filter(Movie.title.like('%' + str(search) + '%'))
+	results = [mv[0] for mv in query.all()]
+    	return jsonify(matching_results=results)
 
 #@app.route('/submit/', methods=['GET','POST'])
 #def submit():

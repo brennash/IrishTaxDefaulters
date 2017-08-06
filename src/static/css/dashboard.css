@@ -1,0 +1,17 @@
+.dashboard ul {
+    background-color: #2F4050;
+}
+
+.dashboard a {
+    background-color: #2F4050;
+    font-family: 'Gochi Hand', cursive;
+    font-size: 15px;
+    font-color: #2F3405;
+}
+
+.dashboard a:hover {
+    background-color: #293846;
+    font-family: 'Gochi Hand', cursive;
+    font-size: 15px;
+    font-color: #FFFFFF;
+}

@@ -108,11 +108,21 @@ class ProcessDefaulters:
 		return ''
 
 	def listDefaulters(self):
-
 		for defaulter in self.defaulterList:
 			name    = defaulter.getName()
 			address = defaulter.getAddress()
 			print name, '|',  address
+
+	def getDefaulter(self, name):
+		tokens = name.upper().replace(',',' ').split(' ')
+		for defaulter in self.defaulterList:
+			result = True
+			for token in tokens:
+				if token not in defaulter.getName():
+					result = False
+			if result:
+				return defaulter
+		return None
 
 def main(argv):
         parser = OptionParser(usage="Usage: ProcessDefaulters <text-filename>")
