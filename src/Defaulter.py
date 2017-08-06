@@ -1,4 +1,5 @@
 import re
+import sys
 
 class Defaulter:
 
@@ -13,6 +14,10 @@ class Defaulter:
 		self.line         = line
 		self.setCounties()
 		self.chargeList   = []
+
+		# Set the default encoding
+		reload(sys)
+		sys.setdefaultencoding('utf-8')
 
 		# Now process the names
 		self.setName(line)
@@ -74,7 +79,7 @@ class Defaulter:
 			# Get position of contiguous whitespace
 			if '  ' in line[0:28]:
 				index = line.index('  ')
-				self.name = line[0:index]
+				self.name = line[0:index].encode("utf8")
 			else:
 				# Otherwise find the most appropriate spacing
 				indexList = self.getIndexList(line, ' ')
@@ -82,7 +87,7 @@ class Defaulter:
 				for index in indexList:
 					if index >= 4 and index <= 25:
 						validList.append(index)
-				self.name = line[0:validList[-1]].rstrip()
+				self.name = line[0:validList[-1]].rstrip().encode("utf8")
 
 	def setAddress(self, line):
 
@@ -90,9 +95,9 @@ class Defaulter:
 			nameIndex       = len(self.name)
 			addressStr      = line[nameIndex:].lstrip().rstrip()
 			addressEndIndex = self.getCountyIndex(addressStr)
-			self.address    = addressStr[0:addressEndIndex]
+			self.address    = addressStr[0:addressEndIndex].encode("utf8")
 		elif len(self.name) == 0 and len(line) > 70:
-			self.address = line[18:69].lstrip().rstrip()
+			self.address = line[18:69].lstrip().rstrip().encode("utf8")
 		else:
 			nameIndex  = len(self.name)
 			addressStr = line[nameIndex:].lstrip().rstrip()
@@ -106,11 +111,12 @@ class Defaulter:
 				for index in indexList:
 					if index >= 5 and index <= 50:
 						validList.append(index)
-				self.address = addressStr[0:validList[-1]].rstrip()
+				self.address = addressStr[0:validList[-1]].rstrip().encode("utf8")
 
 		for county in self.countyList:
 			if county.upper() in self.address.upper():
-				self.county = county.upper()
+				self.county = county.upper().encode("utf8")
+				break
 
 
 	def containsCounty(self, line):
@@ -118,6 +124,9 @@ class Defaulter:
 			if county in line:
 				return True
 		return False
+
+	def getCounty(self):
+		return self.county
 
 	def getCountyIndex(self, line):
 		for county in self.countyList:

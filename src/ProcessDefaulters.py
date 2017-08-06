@@ -4,6 +4,7 @@ import os
 import csv
 import sys
 import time
+import logging
 import datetime
 import collections
 from sets import Set
@@ -14,7 +15,12 @@ from optparse import OptionParser
 class ProcessDefaulters:
 
 	def __init__(self):
+
+		self.keywordList   = {}
+		self.keywordSet    = Set()
 		self.defaulterList = []
+
+		self.logger = None
 
 		self.charges = ['ALCOHOL SMUGGLING'
 			,'CIGARETTE SMUGGLING'
@@ -51,10 +57,82 @@ class ProcessDefaulters:
 			,'ILLEGAL '
 			,'DELIVERING INCORRECT']
 
+	def setupLogging(self):
+		""" 
+		Sets up the logging, inheriting the logger functionality from 
+		the Defaulters Dashboard Flask application, which will be the parent/calling
+		class. The logger is a rotating file logger.
+		"""
+		try:
+			self.logger = logging.getLogger('DefaultersDashboard')
+		except Exception, err:
+			print err
+			self.logger = None
+
+	def loadFiles(self, dir):
+		"""
+		Recursively parses through a provided input data folder, extracting 
+		and reading all the input files therein. 
+		"""
+
+		# Start the logger
+		self.setupLogging()
+
+		# Parse the folder for the files
+		for root, dirs, files in os.walk(dir):
+			path = root.split(os.sep)
+			for filename in files:
+				if filename[-4:] == '.txt':
+					if self.logger is not None:
+						self.logger.info('Reading input data file {0}'.format(filename))
+					else:
+						print 'Reading input data file -- {0}'.format(filename)
+					self.readFile(dir+os.sep+filename)
+
+		# Try to log the output
+		if self.logger is not None:
+			self.logger.info('Processed {0} defaulters'.format(len(self.defaulterList)))
+
+		# Process the keywords for indexing and lookup
+		self.processKeywords()
+
+
+	def searchKeywords(self, inputStr):
+		"""
+		Returns a list of defaulters containing at least one of the provided keywords. 
+		"""
+		results = []
+		resultSet = Set()
+
+		# Clean up the input string
+		inputStr = inputStr.replace(',',' ')
+		inputStr = inputStr.replace('.',' ')
+		inputStr = inputStr.replace('-',' ')
+		inputStr = inputStr.replace('_',' ')
+		inputList = inputStr.split(' ')
+
+		# Parse the input string
+		for keyword in inputList:
+			if keyword in self.keywordSet:
+				indexList = self.keywordList[keyword]
+				for index in indexList:
+					resultSet.add(index)
+
+		for resultIndex in resultSet:
+			results.append(self.defaulterList[resultIndex])
+
+		results.sort(key=lambda x: x.getName(), reverse=False)
+
+		return results
+
+
 	def run(self, filename):
 		""" 
-		Reads the text and sets up the defaulters list
+		Reads a single input data file and sets up the defaulters list
 		"""
+		if self.logger is not None:
+			self.logger.info('Reading single input data file {0}'.format(filename))
+
 		self.readFile(filename)
 		self.listDefaulters()
 
@@ -83,6 +161,39 @@ class ProcessDefaulters:
 				if len(self.defaulterList) > 0:
 					self.defaulterList[-1].update(line)
 			index += 1
+
+
+	def processKeywords(self):
+
+		for index, defaulter in enumerate(self.defaulterList):
+
+			# Build full string of name, address, profession etc.
+			defaulterStr  = defaulter.getName().lower()
+			defaulterStr += ' '
+			defaulterStr += defaulter.getAddress().lower()
+			defaulterStr += ' '
+			defaulterStr += defaulter.getProfession().lower()
+
+			# Clean up this string
+			defaulterStr  = defaulterStr.replace('  ',' ')
+			defaulterStr  = defaulterStr.replace(',',' ')
+			defaulterStr  = defaulterStr.replace('.',' ')
+			defaulterStr  = defaulterStr.replace('-',' ')
+			defaulterStr  = defaulterStr.replace('_',' ')
+			defaulterStr  = defaulterStr.replace('|',' ')
+
+			# Split it into tokens
+			tokens = defaulterStr.split(' ')
+
+			# Parse the tokens for keywords
+			for keyword in tokens:
+				if keyword in self.keywordSet:
+					indexList = self.keywordList[keyword]
+					indexList.append(index)
+					self.keywordList[keyword] = indexList
+				else:
+					self.keywordList[keyword] = [ index ]
+					self.keywordSet.add(keyword)
 
 	def getNumDefaulters(self):
 		return len(self.defaulterList)
@@ -130,8 +241,16 @@ def main(argv):
 
 	if len(filename) == 1:
 		if os.path.exists(filename[0]):
-			processor = ProcessDefaulters()
-			processor.run(filename[0])
+			if os.path.isfile(filename[0]):
+				processor = ProcessDefaulters()
+				processor.run(filename[0])
+			elif os.path.isdir(filename[0]):
+				processor = ProcessDefaulters()
+				processor.loadFiles(filename[0])
+			else:
+		                parser.print_help()
+        		        print '\nYou need to provide an existing input file.'
+				exit(1)
 		else:
 	                parser.print_help()
         	        print '\nYou need to provide an existing input file.'

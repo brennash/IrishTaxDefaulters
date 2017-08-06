@@ -2,7 +2,7 @@
   <head>
     <title>Irish Tax Defaulters</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-    <link href="https://fonts.googleapis.com/css?family=Amatic+SC" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300|Special+Elite" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/jquery-ui.css')}}"/>
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/materialize.min.css')}}"/>
@@ -14,10 +14,15 @@
       b {
         color: black;
         font-family: 'Special Elite', cursive;
-        font-size: 26px;
+        font-size: 18px;
         font-weight: bold;
       } 
 
+      td {
+        color: black;
+        font-family: 'Open Sans Condensed', sans-serif;
+        font-size: 14px;
+      }
 
       .input-field input:focus + label {
         color: #27AAE1 !important;
@@ -52,17 +57,14 @@
     <div class="container">
       <div class="row" align="middle">
         &nbsp;<br>
-        &nbsp;<br>
-        &nbsp;<br>
-        &nbsp;<br>
       </div>  
 
       <!--- The top header row --->
       <div class="row" align="middle">
         <div class="col s8 offset-s2" align="center">
-          <img src="{{ url_for('static', filename='img/logo.png') }}" height="75" align="middle">
+          <img src="{{ url_for('static', filename='img/logo.png') }}" height="45" align="middle">
           &nbsp;&nbsp;&nbsp;
-          <b>Irish Tax Defaulters</b>
+          <b>Irish Tax Defaulters - Search Results</b>
         </div>
       </div>
 
@@ -86,6 +88,30 @@
           </div>
         </div>
       </div>
+
+      <hr><br>
+
+      <table class="highlight s10">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Address</th>
+            <th>County</th>
+            <th>Profession</th>
+          </tr>  
+        </thead>
+
+        <tbody>
+          {% for defaulter in defaulterList %}
+          <tr>
+            <td>{{ defaulter.getName() }}</td>
+            <td>{{ defaulter.getAddress() }}</td>
+            <td>{{ defaulter.getCounty() }}</td>
+            <td>{{ defaulter.getProfession() }}</td>
+          </tr>
+          {% endfor %}
+        </tbody> 
+      </table>
 
 </body>
 
