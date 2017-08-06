@@ -120,7 +120,7 @@ class Defaulter:
 				self.address = addressStr[0:validList[-1]].rstrip().encode("utf8")
 
 		for county in self.countyList:
-			if county.upper() in self.address.upper():
+			if county.upper() in line.upper():
 				self.county = county.upper().encode("utf8")
 				break
 
