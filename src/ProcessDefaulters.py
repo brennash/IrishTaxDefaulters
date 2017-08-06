@@ -19,8 +19,7 @@ class ProcessDefaulters:
 		self.keywordList   = {}
 		self.keywordSet    = Set()
 		self.defaulterList = []
-
-		self.logger = None
+		self.logger        = None
 
 		self.charges = ['ALCOHOL SMUGGLING'
 			,'CIGARETTE SMUGGLING'
@@ -97,7 +96,7 @@ class ProcessDefaulters:
 		self.processKeywords()
 
 
-	def searchKeywords(self, inputStr):
+	def searchKeywords(self, rawInputStr):
 		"""
 		Returns a list of defaulters containing at least one of the provided keywords. 
 		"""
@@ -105,10 +104,7 @@ class ProcessDefaulters:
 		resultSet = Set()
 
 		# Clean up the input string
-		inputStr = inputStr.replace(',',' ')
-		inputStr = inputStr.replace('.',' ')
-		inputStr = inputStr.replace('-',' ')
-		inputStr = inputStr.replace('_',' ')
+		inputStr = self.cleanString(rawInputStr)
 		inputList = inputStr.split(' ')
 
 		# Parse the input string
@@ -118,7 +114,20 @@ class ProcessDefaulters:
 				for index in indexList:
 					resultSet.add(index)
 
+		# Setup the final results
+		finalResults = Set()
+
 		for resultIndex in resultSet:
+			defaulter    = self.defaulterList[resultIndex]
+			defaulterStr = self.cleanString(defaulter.getString())
+			allKeywords  = True
+			for keyword in inputList:
+				if keyword not in defaulterStr:
+					allKeywords = False
+			if allKeywords:
+				finalResults.add(resultIndex)
+
+		for resultIndex in finalResults:
 			results.append(self.defaulterList[resultIndex])
 
 		results.sort(key=lambda x: x.getName(), reverse=False)
@@ -168,22 +177,10 @@ class ProcessDefaulters:
 		for index, defaulter in enumerate(self.defaulterList):
 
 			# Build full string of name, address, profession etc.
-			defaulterStr  = defaulter.getName().lower()
-			defaulterStr += ' '
-			defaulterStr += defaulter.getAddress().lower()
-			defaulterStr += ' '
-			defaulterStr += defaulter.getProfession().lower()
-
-			# Clean up this string
-			defaulterStr  = defaulterStr.replace('  ',' ')
-			defaulterStr  = defaulterStr.replace(',',' ')
-			defaulterStr  = defaulterStr.replace('.',' ')
-			defaulterStr  = defaulterStr.replace('-',' ')
-			defaulterStr  = defaulterStr.replace('_',' ')
-			defaulterStr  = defaulterStr.replace('|',' ')
-
-			# Split it into tokens
-			tokens = defaulterStr.split(' ')
+			tokens1  = self.cleanString(defaulter.getName()).split(' ')
+			tokens2  = self.cleanString(defaulter.getAddress()).split(' ')
+			tokens3  = self.cleanString(defaulter.getProfession()).split(' ')
+			tokens   = tokens1 + tokens2 + tokens3
 
 			# Parse the tokens for keywords
 			for keyword in tokens:
@@ -194,6 +191,24 @@ class ProcessDefaulters:
 				else:
 					self.keywordList[keyword] = [ index ]
 					self.keywordSet.add(keyword)
+
+
+	def cleanString(self, inputString):
+		outputString = inputString.strip().lower()
+		outputString = outputString.replace('  ',' ')
+		outputString = outputString.replace(',',' ')
+		outputString = outputString.replace('.',' ')
+		outputString = outputString.replace('-',' ')
+		outputString = outputString.replace('_',' ')
+		outputString = outputString.replace('|',' ')
+		outputString = outputString.replace('/',' ')
+		outputString = outputString.replace('\\',' ')
+		outputString = outputString.replace('(',' ')
+		outputString = outputString.replace(')',' ')
+		outputString = outputString.replace('[',' ')
+		outputString = outputString.replace(']',' ')
+		return outputString
+
 
 	def getNumDefaulters(self):
 		return len(self.defaulterList)

@@ -62,7 +62,7 @@ def search():
 		# Log the requestor details to file
 		searchStr = request.form.get('search_text')
 		app.logger.info('Search String: {0}'.format(searchStr))
-		resultList = defaulters.searchKeywords(searchStr)
+		resultList = defaulters.searchKeywords(searchStr.strip().lower())
 		app.logger.info('Returned {0} defaulters'.format(len(resultList)))
 		return render_template('search.html', defaulterList=resultList)
 	else:

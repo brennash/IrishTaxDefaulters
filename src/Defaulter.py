@@ -63,6 +63,12 @@ class Defaulter:
 			except Exception, err:
 				return ''
 
+	def getString(self):
+		result = '{0}, '.format(self.getName())
+		result += '{0}, '.format(self.getAddress())
+		result += '{0}, '.format(self.getCounty())
+		result += '{0}'.format(self.getProfession())
+		return result
 
 	def getIndex(self, searchTerm):
 		try:
