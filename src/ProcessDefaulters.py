@@ -118,11 +118,12 @@ class ProcessDefaulters:
 		finalResults = Set()
 
 		for resultIndex in resultSet:
-			defaulter    = self.defaulterList[resultIndex]
-			defaulterStr = self.cleanString(defaulter.getString())
+			defaulter       = self.defaulterList[resultIndex]
+			defaulterStr    = self.cleanString(defaulter.getString())
+			defaulterTokens = defaulterStr.split()
 			allKeywords  = True
 			for keyword in inputList:
-				if keyword not in defaulterStr:
+				if keyword not in defaulterTokens:
 					allKeywords = False
 			if allKeywords:
 				finalResults.add(resultIndex)

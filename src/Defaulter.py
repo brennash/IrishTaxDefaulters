@@ -12,17 +12,21 @@ class Defaulter:
 		self.fine         = 0.0
 		self.numCharges   = 0
 		self.line         = line
-		self.setCounties()
 		self.chargeList   = []
 
 		# Set the default encoding
 		reload(sys)
 		sys.setdefaultencoding('utf-8')
 
+		# Create the list of counties
+		self.setCounties()
+
 		# Now process the names
 		self.setName(line)
 		self.setAddress(line)
 		self.setProfession(line)
+		self.setCounty(line)
+
 
 	def update(self, line):
 		""" 
@@ -40,6 +44,9 @@ class Defaulter:
 			self.address = self.address + ' ' + self.getSubString(line, addressIndexList)
 		if self.getSubString(line, professionIndexList) != '':
 			self.profession = self.profession + ' ' + self.getSubString(line, professionIndexList)
+
+		# Re-set the county if needs be
+		self.setCounty(line)
 
 	def getSubString(self, line, indexList):
 
@@ -119,11 +126,14 @@ class Defaulter:
 						validList.append(index)
 				self.address = addressStr[0:validList[-1]].rstrip().encode("utf8")
 
-		for county in self.countyList:
-			if county.upper() in line.upper():
-				self.county = county.upper().encode("utf8")
-				break
 
+	def setCounty(self, line):
+		if self.county == '':
+			# Iterate through the list of counties setting them
+			for county in self.countyList:
+				if county.upper() in self.address.upper():
+					self.county = county.upper().encode("utf8")
+					break
 
 	def containsCounty(self, line):
 		for county in self.countyList:
