@@ -234,6 +234,9 @@ class Defaulter:
 	def getChargeList(self):
 		return self.chargeList
 
+	def getChargeListAsString(self):
+		return ','.join(self.chargeList)
+
 	def getStartIndex(self, line, startIndex):
 		charRegex = re.compile('[a-zA-Z0-9]')
 		for index, char in enumerate(line[startIndex:]):
