@@ -21,41 +21,6 @@ class ProcessDefaulters:
 		self.defaulterList = []
 		self.logger        = None
 
-		self.charges = ['ALCOHOL SMUGGLING'
-			,'CIGARETTE SMUGGLING'
-			,'CLAIMING VAT REPAYMENT(S) TO WHICH NOT ENTITLED'
-			,'CLAIMING MEDICAL EXPENSE REPAYMENT(S) TO WHICH NOT ENTITLED'
-			,'DELIVERING INCORRECT INCOME TAX RETURN(S)'
-			,'DELIVERING INCORRECT INCOME VAT RETURN(S)'
-			,'DELIVERING INCORRECT RCT RETURN(S)'
-			,'FAILURE TO KEEP THE VEHICLE STATIONARY'
-			,'FAILURE TO HOLD CURRENT LIQUOR LICENCE'
-			,'FAILURE TO DELIVER STATEMENT OF AFFAIRS'
-			,'FAILURE TO LODGE INCOME TAX RETURN(S)'
-			,'FAILURE TO LODGE CORPORATION TAX RETURN(S)'
-			,'FAILURE TO LODGE VAT RETURN(S)'
-			,'FAILURE TO LODGE P35 RETURN(S)'
-			,'FAILURE TO LODGE P60 RETURN(S)'
-			,'FAILURE TO REMIT VAT'
-			,'FAILURE TO MAINTAIN BOOKS AND RECORDS'
-			,'FAILURE TO HOLD A CURRENT LIQUOR LICENCE'
-			,'FAILURE TO PRODUCE BOOKS & RECORDS'
-			,'FILING INCORRECT INCOME TAX RETURN(S)'
-			,'ILLEGAL BETTING'
-			,'ILLEGAL SELLING OF CIGARETTES'
-			,'KEEPING UNTAXED TOBACCO FOR SALE'
-			,'KEEPING PROHIBITED GOODS IN A VEHICLE'
-			,'MISUSE OF MARKED MINERAL OIL'
-			,'OIL LAUNDERING'
-			,'OIL SMUGGLING'
-			,'POSSESSION OF AN UNREGISTERED VEHICLE'
-			,'POSSESSION OF COUNTERFEIT ALCOHOL FOR SALE'
-			,'POSSESSION OF '
-			,'FAILURE TO '
-			,'CLAIMING '
-			,'ILLEGAL '
-			,'DELIVERING INCORRECT']
-
 	def setupLogging(self):
 		""" 
 		Sets up the logging, inheriting the logger functionality from 
@@ -86,7 +51,7 @@ class ProcessDefaulters:
 						self.logger.info('Reading input data file {0}'.format(filename))
 					else:
 						print 'Reading input data file -- {0}'.format(filename)
-					self.readFile(dir+os.sep+filename)
+						self.processFile(path+os.sep+filename)
 
 		# Try to log the output
 		if self.logger is not None:
@@ -94,6 +59,43 @@ class ProcessDefaulters:
 
 		# Process the keywords for indexing and lookup
 		self.processKeywords()
+
+
+
+	def processFile(self, inputFilename):
+
+		sectionStart = []
+		sectionEnd   = []
+		charges      = []
+		inputText    = []
+		inputFile    = open(inputFilename, 'rb')
+		nameRegex    = re.compile('^Name')
+
+		# Get the section indexes and the charges
+		prevLine = ''
+		for index, line in enumerate(inputFile):
+			inputText.append(line)
+			if nameRegex.match(line):
+				sectionStart.append(index+1)
+				charges.append(prevLine.strip())
+				if len(sectionStart) > 1:
+					sectionEnd.append(index-1)
+			prevLine = line
+		sectionEnd.append(index)
+
+		print sectionStart, sectionEnd
+		print charges
+
+		# Parse through it again to separate out the defaulters
+		sectionIndex = 0
+		startIndex   = sectionStart[sectionIndex]
+		endIndex     = sectionEnd[sectionIndex]
+		sectionLines = []
+		sections     = []
+
+		for index, line in enumerate(inputText):
+			if index >= sectionStart[-1] and index < sectionEnd[-1]:
+				print line
 
 
 	def searchKeywords(self, rawInputStr):
@@ -135,7 +137,6 @@ class ProcessDefaulters:
 
 		return results
 
-
 	def run(self, filename):
 		""" 
 		Reads a single input data file and sets up the defaulters list
@@ -143,8 +144,8 @@ class ProcessDefaulters:
 		if self.logger is not None:
 			self.logger.info('Reading single input data file {0}'.format(filename))
 
-		self.readFile(filename)
-		self.listDefaulters()
+		self.processFile(filename)
+		#self.listDefaulters()
 
 	def readFile(self, filename):
 		""" 
