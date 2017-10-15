@@ -1,5 +1,6 @@
 import re
 import sys
+import logging
 
 class Defaulter:
 
@@ -9,7 +10,8 @@ class Defaulter:
 		self.county       = ''
 		self.profession   = ''
 		self.sentence     = ''
-		self.fine         = 0.0
+		self.fineStr      = None
+		self.fine         = None
 		self.numCharges   = 0
 		self.line         = line
 		self.chargeList   = []
@@ -17,6 +19,12 @@ class Defaulter:
 		# Set the default encoding
 		reload(sys)
 		sys.setdefaultencoding('utf-8')
+
+		# Setup the logging
+		try:
+			self.logger     = logging.getLogger('__main__')
+		except:
+			self.logger     = None
 
 		# Create the list of counties
 		self.setCounties()
@@ -26,17 +34,20 @@ class Defaulter:
 		self.setAddress(line)
 		self.setProfession(line)
 		self.setCounty(line)
-
+		self.setFine(line)
+		self.setSentence(line)
+		self.setNumCharges(line)
 
 	def update(self, line):
 		""" 
 		Function called to append details to multi-line entries in the 
 		input files. 
 		"""
-		nameIndexList = self.getIndex(self.name)
-		addressIndexList = self.getIndex(self.address)
+		nameIndexList       = self.getIndex(self.name)
+		addressIndexList    = self.getIndex(self.address)
 		professionIndexList = self.getIndex(self.profession)
-		sentenceIndexList = self.getIndex(self.sentence)
+		fineIndexList       = self.getIndex(self.fineStr)
+		sentenceIndexList   = self.getIndex(self.sentence)
 
 		if self.getSubString(line, nameIndexList) != '':
 			self.name = self.getSubString(line, nameIndexList) + ' ' + self.name
@@ -44,6 +55,10 @@ class Defaulter:
 			self.address = self.address + ' ' + self.getSubString(line, addressIndexList)
 		if self.getSubString(line, professionIndexList) != '':
 			self.profession = self.profession + ' ' + self.getSubString(line, professionIndexList)
+		if self.getSubString(line, fineIndexList) != '':
+			self.fineStr = self.fineStr + ' ' + self.getSubString(line, fineIndexList)
+		if self.getSubString(line, sentenceIndexList) != '':
+			self.sentence = self.sentence + ' ' + self.getSubString(line, sentenceIndexList)
 
 		# Re-set the county if needs be
 		self.setCounty(line)
@@ -226,7 +241,63 @@ class Defaulter:
 				for index in indexList:
 					if index >= 5 and index <= 25:
 						validList.append(index)
-				self.profession = addressStr[0:validList[-1]].rstrip()
+				self.profession = professionStr[0:validList[-1]].rstrip()
+
+	def setFine(self, line):
+		""" 
+		Sets the fine amount as a float value. This function requires the 
+		profession to be set before the fine amount can be indexed. 
+		"""
+		# Only set the fine if a valid name/address/profession is already present
+		if self.name != '' and self.address != '' and self.profession is not None:
+			# Fine the index position of the profession in the string
+			index            = line.index(self.profession)
+			profLen          = len(self.profession)
+			fineStr          = line[(index+profLen):].lstrip().rstrip()
+
+			if '  ' in fineStr:
+				tokens       = fineStr.split('  ')
+				self.fineStr = tokens[0]
+				self.fine    = self.toFloat(tokens[0])
+			else:
+				indexList = self.getIndexList(fineStr, ' ')
+				validList = []
+				for index in indexList:
+					if index >= 5 and index <= 25:
+						validList.append(index)
+				self.fineStr = fineStr[0:validList[-1]].rstrip()
+				self.fine    = self.toFloat(fineStr[0:validList[-1]].rstrip())
+
+	def setSentence(self, line):
+		""" 
+		Sets the sentence as a string value. This function requires the 
+		fine to be set before the sentence can be indexed. 
+		"""
+		# Only set the fine if a valid name/address/profession is already present
+		if self.name != '' and self.address != '' and self.profession is not None:
+			# Fine the index position of the profession in the string
+			index            = line.index(self.fineStr)
+			fineLen          = len(self.fineStr)
+			sentenceStr      = line[(index+fineLen):].lstrip().rstrip()
+			charRegex        = re.compile('[a-zA-Z]+')
+
+			if charRegex.match(sentenceStr) or 'YEARS' in sentenceStr or 'MONTHS' in sentenceStr or 'DAYS' in sentenceStr:
+				if '  ' in sentenceStr:
+					tokens = sentenceStr.split('  ')
+					self.sentence = tokens[0]
+				else:
+					indexList = self.getIndexList(sentenceStr, ' ')
+					validList = []
+					for index in indexList:
+						if index >= 5 and index <= 25:
+							validList.append(index)
+					self.sentence = sentenceStr[0:validList[-1]].rstrip()
+
+	def setNumCharges(self, line):
+		if len(line) > 0:
+			tokens = line.strip().split(' ')
+			if tokens[-1].isdigit():
+				self.numCharges = int(tokens[-1])
 
 	def addCharge(self, charge):
 		self.chargeList.append(charge)
@@ -252,14 +323,44 @@ class Defaulter:
 		else:
 			return -1
 
+	def toFloat(self, strValue):
+		""" 
+		Returns a positive float value from a given string input, e.g., 6,000.00.
+		"""
+		try:
+			floatStr = ''
+			for char in strValue:
+				if char.isdigit() or char == '.':
+					floatStr = floatStr + char
+			return float(floatStr)
+		except:
+			if self.logger is not None:
+				self.logger.error('Error converting {0} to float'.format(strValue))
+			return 0.0
+
+
 	def getName(self):
 		return self.name
 
 	def getAddress(self):
 		return self.address
 
+	def getFine(self):
+		return self.fine
+
 	def getProfession(self):
 		return self.profession
+
+	def getSentence(self):
+		return self.sentence
+
+	def getNumCharges(self):
+		return self.numCharges
+
+	def hasSentence(self):
+		if self.sentence is not None and len(self.sentence) > 3:
+			return True
+		return False
 
 	def getIndexList(self, line, targetChar):
 		""" 
