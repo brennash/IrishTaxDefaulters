@@ -4,14 +4,24 @@ import logging
 
 class Defaulter:
 
-	def __init__(self, line):
+	def __init__(self, line, lineNumber=0):
+		""" 
+		Construct the defaulter object using the line read from the
+		defaulters file, and including a lineNumber for error tracking.
+
+		Inputs
+		~~~~~~
+		line - A string value from the file.
+		lineNumber - An int giving the line number from the file (default set to zero).
+		"""
+
 		self.name         = ''
 		self.address      = ''
 		self.county       = ''
 		self.profession   = ''
 		self.sentence     = ''
-		self.fineStr      = None
-		self.fine         = None
+		self.fineStr      = ''
+		self.fine         = 0.0
 		self.numCharges   = 0
 		self.line         = line
 		self.chargeList   = []
@@ -22,21 +32,21 @@ class Defaulter:
 
 		# Setup the logging
 		try:
-			self.logger     = logging.getLogger('__main__')
+			self.logger = logging.getLogger('__main__')
 		except:
-			self.logger     = None
+			self.logger = None
 
 		# Create the list of counties
 		self.setCounties()
 
 		# Now process the names
-		self.setName(line)
-		self.setAddress(line)
-		self.setProfession(line)
-		self.setCounty(line)
-		self.setFine(line)
-		self.setSentence(line)
-		self.setNumCharges(line)
+		self.setName(line, lineNumber)
+		self.setAddress(line, lineNumber)
+		self.setProfession(line, lineNumber)
+		self.setCounty(line, lineNumber)
+		self.setFine(line, lineNumber)
+		self.setSentence(line, lineNumber)
+		self.setNumCharges(line, lineNumber)
 
 	def update(self, line):
 		""" 
@@ -98,9 +108,15 @@ class Defaulter:
 			endIndex   = len(searchTerm) + startIndex
 			return [startIndex, endIndex]
 		except ValueError:
+			if self.logger is not None:
+				self.logger.error('Cannot getIndex() ValueError for {0}'.format(searchTerm))
+			return [-1, -1]
+		except TypeError:
+			if self.logger is not None:
+				self.logger.error('Cannot getIndex() TypeError for {0}'.format(searchTerm))
 			return [-1, -1]
 
-	def setName(self, line):
+	def setName(self, line, lineNumber=0):
 		if line is None or len(line) == 0:
 			return None
 		else:
@@ -117,7 +133,7 @@ class Defaulter:
 						validList.append(index)
 				self.name = line[0:validList[-1]].rstrip().encode("utf8")
 
-	def setAddress(self, line):
+	def setAddress(self, line, lineNumber=0):
 
 		if self.containsCounty(line):
 			nameIndex       = len(self.name)
@@ -130,19 +146,109 @@ class Defaulter:
 			nameIndex  = len(self.name)
 			addressStr = line[nameIndex:].lstrip().rstrip()
 
-			if '  ' in addressStr[0:50]:
+			if '  ' in addressStr or '\t' in addressStr:
 				tokens = addressStr.split('  ')
 				self.address = tokens[0]
 			else:
-				indexList = self.getIndexList(addressStr, ' ')
+				if '  ' in addressStr[0:50]:
+					tokens = addressStr.split('  ')
+					self.address = tokens[0]
+				else:
+					indexList = self.getIndexList(addressStr, ' ')
+					validList = []
+					for index in indexList:
+						if index >= 5 and index <= 50:
+							validList.append(index)
+					self.address = addressStr[0:validList[-1]].rstrip().encode("utf8")
+
+	def setProfession(self, line, lineNumber):
+
+		# Only set the profession if a valid name/address is already present
+		if self.name != '' and self.address != '':
+
+			# Fine the index position of the address in the string
+			index            = line.index(self.address)
+			addrLen          = len(self.address)
+			professionStr    = line[(index+addrLen):].lstrip().rstrip()
+
+			if '  ' in professionStr:
+				tokens = professionStr.split('  ')
+				self.profession = tokens[0]
+			else:
+				try:
+					indexList = self.getIndexList(professionStr, ' ')
+					validList = []
+					for index in indexList:
+						if index >= 5 and index <= 25:
+							validList.append(index)
+					self.profession = professionStr[0:validList[-1]].rstrip()
+				except:
+					if self.logger is not None:
+						self.logger.error('Problem finding profession for {0}'.format(line))
+					else:
+						print line
+
+	def setFine(self, line, lineNumber):
+		""" 
+		Sets the fine amount as a float value. This function requires the 
+		profession to be set before the fine amount can be indexed. 
+		"""
+		# Only set the fine if a valid name/address/profession is already present
+		if self.name != '' and self.address != '' and self.profession is not None:
+			# Fine the index position of the profession in the string
+			index            = line.index(self.profession)
+			profLen          = len(self.profession)
+			fineStr          = line[(index+profLen):].lstrip().rstrip()
+
+			if '  ' in fineStr:
+				tokens       = fineStr.split('  ')
+				self.fineStr = tokens[0]
+				self.fine    = self.toFloat(tokens[0], lineNumber)
+			else:
+				indexList = self.getIndexList(fineStr, ' ')
 				validList = []
 				for index in indexList:
-					if index >= 5 and index <= 50:
+					if index >= 5 and index <= 25:
 						validList.append(index)
-				self.address = addressStr[0:validList[-1]].rstrip().encode("utf8")
+				if len(validList) > 0:
+					self.fineStr = fineStr[0:validList[-1]].rstrip()
+					self.fine    = self.toFloat(fineStr[0:validList[-1]].rstrip(), lineNumber)
 
+	def setSentence(self, line, lineNumber=0):
+		""" 
+		Sets the sentence as a string value. This function requires the 
+		fine to be set before the sentence can be indexed. 
+		"""
+		# Only set the fine if a valid name/address/profession is already present
+		if self.name != '' and self.address != '' and self.profession is not None:
+			# Fine the index position of the profession in the string
+			index            = self.getIndex(self.fineStr)
+			fineLen          = len(self.fineStr)
+			sentenceStr      = line[(index[0]+fineLen):].lstrip().rstrip()
+			charRegex        = re.compile('[a-zA-Z]+')
 
-	def setCounty(self, line):
+			if charRegex.match(sentenceStr) or 'YEARS' in sentenceStr or 'MONTHS' in sentenceStr or 'DAYS' in sentenceStr:
+				if '  ' in sentenceStr:
+					tokens = sentenceStr.split('  ')
+					self.sentence = tokens[0]
+				else:
+					indexList = self.getIndexList(sentenceStr, ' ')
+					validList = []
+					for index in indexList:
+						if index >= 5 and index <= 25:
+							validList.append(index)
+					self.sentence = sentenceStr[0:validList[-1]].rstrip()
+		else:
+			if self.logger is not None:
+				self.logger.warning('Trying to set the sentence with no name/address set')
+
+	def setNumCharges(self, line, lineNumber=0):
+		if len(line) > 0:
+			tokens = line.strip().split(' ')
+			if tokens[-1].isdigit():
+				self.numCharges = int(tokens[-1])
+
+	def setCounty(self, line, lineNumber=0):
 		if self.county == '':
 			# Iterate through the list of counties setting them
 			for county in self.countyList:
@@ -220,84 +326,17 @@ class Defaulter:
 			,'DUBLIN 22'
 			,'DUBLIN 24'
 			,'DUBLIN 1'
-			,'DUBLIN 2']
-
-	def setProfession(self, line):
-
-		# Only set the profession if a valid name/address is already present
-		if self.name != '' and self.address != '':
-
-			# Fine the index position of the address in the string
-			index            = line.index(self.address)
-			addrLen          = len(self.address)
-			professionStr    = line[(index+addrLen):].lstrip().rstrip()
-
-			if '  ' in professionStr:
-				tokens = professionStr.split('  ')
-				self.profession = tokens[0]
-			else:
-				indexList = self.getIndexList(professionStr, ' ')
-				validList = []
-				for index in indexList:
-					if index >= 5 and index <= 25:
-						validList.append(index)
-				self.profession = professionStr[0:validList[-1]].rstrip()
-
-	def setFine(self, line):
-		""" 
-		Sets the fine amount as a float value. This function requires the 
-		profession to be set before the fine amount can be indexed. 
-		"""
-		# Only set the fine if a valid name/address/profession is already present
-		if self.name != '' and self.address != '' and self.profession is not None:
-			# Fine the index position of the profession in the string
-			index            = line.index(self.profession)
-			profLen          = len(self.profession)
-			fineStr          = line[(index+profLen):].lstrip().rstrip()
-
-			if '  ' in fineStr:
-				tokens       = fineStr.split('  ')
-				self.fineStr = tokens[0]
-				self.fine    = self.toFloat(tokens[0])
-			else:
-				indexList = self.getIndexList(fineStr, ' ')
-				validList = []
-				for index in indexList:
-					if index >= 5 and index <= 25:
-						validList.append(index)
-				self.fineStr = fineStr[0:validList[-1]].rstrip()
-				self.fine    = self.toFloat(fineStr[0:validList[-1]].rstrip())
-
-	def setSentence(self, line):
-		""" 
-		Sets the sentence as a string value. This function requires the 
-		fine to be set before the sentence can be indexed. 
-		"""
-		# Only set the fine if a valid name/address/profession is already present
-		if self.name != '' and self.address != '' and self.profession is not None:
-			# Fine the index position of the profession in the string
-			index            = line.index(self.fineStr)
-			fineLen          = len(self.fineStr)
-			sentenceStr      = line[(index+fineLen):].lstrip().rstrip()
-			charRegex        = re.compile('[a-zA-Z]+')
-
-			if charRegex.match(sentenceStr) or 'YEARS' in sentenceStr or 'MONTHS' in sentenceStr or 'DAYS' in sentenceStr:
-				if '  ' in sentenceStr:
-					tokens = sentenceStr.split('  ')
-					self.sentence = tokens[0]
-				else:
-					indexList = self.getIndexList(sentenceStr, ' ')
-					validList = []
-					for index in indexList:
-						if index >= 5 and index <= 25:
-							validList.append(index)
-					self.sentence = sentenceStr[0:validList[-1]].rstrip()
-
-	def setNumCharges(self, line):
-		if len(line) > 0:
-			tokens = line.strip().split(' ')
-			if tokens[-1].isdigit():
-				self.numCharges = int(tokens[-1])
+			,'DUBLIN 2'
+			,'SCOTLAND'
+			,'UNITED KINGDOM'
+			,'ENGLAND'
+			,'WALES'
+			,'ROMANIA'
+			,'MOLDOVA'
+			,'LATVIA'
+			,'LITHUANIA'
+			,'BULGARIA'
+			,'ALBANIA']
 
 	def addCharge(self, charge):
 		self.chargeList.append(charge)
@@ -323,7 +362,7 @@ class Defaulter:
 		else:
 			return -1
 
-	def toFloat(self, strValue):
+	def toFloat(self, strValue, lineNumber):
 		""" 
 		Returns a positive float value from a given string input, e.g., 6,000.00.
 		"""
@@ -335,7 +374,7 @@ class Defaulter:
 			return float(floatStr)
 		except:
 			if self.logger is not None:
-				self.logger.error('Error converting {0} to float'.format(strValue))
+				self.logger.error('Error converting {0} to float on line {1}'.format(strValue, lineNumber))
 			return 0.0
 
 

@@ -3,6 +3,7 @@ import re
 import os
 import csv
 import sys
+import json
 import time
 import logging
 import datetime
@@ -10,17 +11,46 @@ import collections
 from sets import Set
 from Defaulter import Defaulter
 from optparse import OptionParser
-
+from logging.handlers import RotatingFileHandler
 
 class ProcessDefaulters:
 
-	def __init__(self):
+	def __init__(self, configDict=None):
 
 		self.keywordList    = {}
 		self.keywordSet     = Set()
-		self.defaultersList = []
-		self.logger         = None
 		self.charges        = Set()
+		self.logger         = None
+		self.defaultersList = []
+
+		if configDict is not None:
+			self.setupLogging(configDict,False)
+			self.run(configDict)
+
+	def setupLogging(self, configDict, flaskApp=False):
+                """ Sets up the rotating file logger for the parser. This records logs to a
+                    specified backup location, in this case ./logs/parser.log. The log file location
+                    is stored in a JSON configuration script passed to the CreateFeatures at runtime.
+                """
+		if not flaskApp:
+			self.logger = logging.getLogger(__name__)
+			handler = RotatingFileHandler(configDict['log-filename'], maxBytes=500000, backupCount=3)
+			format  = "%(asctime)s %(levelname)-8s %(message)s"
+			handler.setFormatter(logging.Formatter(format))
+			handler.setLevel(logging.INFO)
+			self.logger.addHandler(handler)
+			self.logger.setLevel(logging.INFO)
+			self.logger.info('Starting ProcessDefaulters script..')
+		else:
+			self.logger = logging.getLogger('App')
+
+	def run(self, configDict):
+		""" 
+		Called to run the processing of the defaulters, instantiate the 
+		defaulters list and execute the summary analysis.
+		"""
+		self.loadFiles(configDict['data-folder'])
+		self.printSummary()
 
 	def loadFiles(self, dir):
 		""" 
@@ -29,8 +59,6 @@ class ProcessDefaulters:
 
 		@dir - The string describing the root data directory.
 		"""
-		# Start the logger
-		self.setupLogging()
 
 		# Parse the folder for the files
 		for root, dirs, files in os.walk(dir):
@@ -39,9 +67,7 @@ class ProcessDefaulters:
 				if filename[-4:] == '.txt':
 					if self.logger is not None:
 						self.logger.info('Reading input data file {0}'.format(filename))
-					else:
-						print 'Reading input data file -- {0}'.format(filename)
-						self.processFile(path+os.sep+filename)
+					self.processFile(root+os.sep+filename)
 		# Try to log the output
 		if self.logger is not None:
 			self.logger.info('Processed {0} defaulters'.format(len(self.defaultersList)))
@@ -58,7 +84,7 @@ class ProcessDefaulters:
 		inputText, charges, sectionStart, sectionEnd = self.getSections(inputFilename)
 
 		if self.logger is not None:
-			self.logger.info('Splitting {0} into the following'.format(intputFilename))
+			self.logger.info('Splitting {0} into the following'.format(inputFilename))
 			self.logger.info('{0} lines of inputText'.format(len(inputText)))
 			self.logger.info('{0} different charges'.format(len(charges)))
 			self.logger.info('{0} section start index markers'.format(len(sectionStart)))
@@ -69,15 +95,12 @@ class ProcessDefaulters:
 			self.charges.add(charge)
 
 		for index, startIndex in enumerate(sectionStart):
-			endIndex = sectionEnd[index]
-			charge   = charges[index]
+			endIndex             = sectionEnd[index]
+			charge               = charges[index]
 			self.defaultersList += self.processSection(inputText, charge, startIndex, endIndex)
 
 		if self.logger is not None:
-			self.logger.info('Processed {0} defaulters in {1}'.format(len(defaulterList), inputFilename))
-
-		#for defaulter in defaultersList:
-		#	print defaulter.getName(), defaulter.getChargeList(), defaulter.getCounty()
+			self.logger.info('Processed {0} defaulters in {1}'.format(len(self.defaultersList), inputFilename))
 
 
 	def processSection(self, inputText, charge, startIndex, endIndex):
@@ -90,7 +113,7 @@ class ProcessDefaulters:
 			if startIndex <= index and index <= endIndex:
 				startLine, endLine, totalChars = self.parseLine(line)
 				if totalChars > 50 and startLine == 0:
-					defaulterList.append(Defaulter(line))
+					defaulterList.append(Defaulter(line, index))
 					defaulterList[-1].addCharge(charge)
 				elif len(defaulterList) > 0:
 					defaulterList[-1].update(line)
@@ -188,19 +211,10 @@ class ProcessDefaulters:
 
 		return results
 
-	def run(self, filename):
-		""" 
-		Reads a single input data file and sets up the defaulters list
-		"""
-		if self.logger is not None:
-			self.logger.info('Reading single input data file {0}'.format(filename))
-
-		self.processFile(filename)
-
 
 	def processKeywords(self):
 
-		for index, defaulter in enumerate(self.defaulterList):
+		for index, defaulter in enumerate(self.defaultersList):
 
 			# Build full string of name, address, profession etc.
 			tokens1  = self.cleanString(defaulter.getName()).split(' ')
@@ -280,45 +294,58 @@ class ProcessDefaulters:
 				return defaulter
 		return None
 
-	def setupLogging(self):
-		""" 
-		Sets up the logging, inheriting the logger functionality from 
-		the Defaulters Dashboard Flask application, which will be the parent/calling
-		class. The logger is a rotating file logger.
-		"""
-		try:
-			self.logger = logging.getLogger('DefaultersDashboard')
-		except Exception, err:
-			print err
-			self.logger = None
+	def printSummary(self):
+		profSet       = Set()
+		profList      = {}
+		finesList     = {}
+
+		print 'SUMMARY',len(self.defaultersList)
+
+		for defaulter in self.defaultersList:
+			prof = defaulter.getProfession()
+			fine = defaulter.getFine()
+			if prof in profSet:
+				profList[prof] += 1.0
+				finesList[prof] += fine
+			else:
+				profList[prof] = 1.0
+				finesList[prof] = fine
+				profSet.add(prof)
+
+		for prof in profSet:
+			print prof, profList[prof], finesList[prof]
+
+def getConfig(filename):
+	""" 
+	This function reads in the JSON configuration file, found in the /conf folder 
+	in the repository, which contains all the setup details for the system. 
+	"""
+	try:
+		with open(filename) as jsonFile:
+			config = json.load(jsonFile)
+			return config
+	except Exception, err:
+		print 'Error reading in configuration file {0}'.format(filename)
+		print 'Description - {0}'.format(str(err))
+		print 'Exiting ...'
+		exit(1)
 
 def main(argv):
-        parser = OptionParser(usage="Usage: ProcessDefaulters <text-filename>")
-        (options, filename) = parser.parse_args()
+	parser = OptionParser(usage="Usage: ProcessDefaulters <config-json>")
+	(options, filename) = parser.parse_args()
 
 	if len(filename) == 1:
 		if os.path.exists(filename[0]):
-			if os.path.isfile(filename[0]):
-				processor = ProcessDefaulters()
-				processor.run(filename[0])
-			elif os.path.isdir(filename[0]):
-				processor = ProcessDefaulters()
-				processor.loadFiles(filename[0])
-			else:
-		                parser.print_help()
-        		        print '\nYou need to provide an existing input file.'
-				exit(1)
+			configDict = getConfig(filename[0])
+			processor  = ProcessDefaulters(configDict)
 		else:
-	                parser.print_help()
-        	        print '\nYou need to provide an existing input file.'
+			parser.print_help()
+			print '\nYou need to provide a config file as input.'
 			exit(1)
 	else:
                 parser.print_help()
-                print '\nYou need to provide existing input file.'
+                print '\nYou need to provide a config file as input.'
                 exit(1)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
-
-
