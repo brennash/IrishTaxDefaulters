@@ -37,7 +37,7 @@ class Defaulter:
 			self.logger = None
 
 		# Create the list of counties
-		self.setCounties()
+		self.initCounties()
 
 		# Now process the names
 		self.setName(line, lineNumber)
@@ -53,20 +53,25 @@ class Defaulter:
 		Function called to append details to multi-line entries in the 
 		input files. 
 		"""
+
 		nameIndexList       = self.getIndex(self.name)
 		addressIndexList    = self.getIndex(self.address)
 		professionIndexList = self.getIndex(self.profession)
 		fineIndexList       = self.getIndex(self.fineStr)
 		sentenceIndexList   = self.getIndex(self.sentence)
 
-		if self.getSubString(line, nameIndexList) != '':
+		if nameIndexList[0] != -1 and self.getSubString(line, nameIndexList) != '':
 			self.name = self.getSubString(line, nameIndexList) + ' ' + self.name
-		if self.getSubString(line, addressIndexList) != '':
+
+		if addressIndexList[0] != -1 and self.getSubString(line, addressIndexList) != '':
 			self.address = self.address + ' ' + self.getSubString(line, addressIndexList)
+
 		if self.getSubString(line, professionIndexList) != '':
 			self.profession = self.profession + ' ' + self.getSubString(line, professionIndexList)
+
 		if self.getSubString(line, fineIndexList) != '':
 			self.fineStr = self.fineStr + ' ' + self.getSubString(line, fineIndexList)
+
 		if self.getSubString(line, sentenceIndexList) != '':
 			self.sentence = self.sentence + ' ' + self.getSubString(line, sentenceIndexList)
 
@@ -77,7 +82,11 @@ class Defaulter:
 
 		emptyString = re.compile('^\s+$')
 
-		if len(indexList) != 2:
+		if indexList is None:
+			return ''
+		elif len(indexList) != 2:
+			return ''
+		elif indexList[0] == -1 and indexList[1] == -1:
 			return ''
 		else:
 			startIndex = indexList[0]
@@ -104,16 +113,15 @@ class Defaulter:
 
 	def getIndex(self, searchTerm):
 		try:
-			startIndex = self.line.index(searchTerm)
-			endIndex   = len(searchTerm) + startIndex
-			return [startIndex, endIndex]
-		except ValueError:
-			if self.logger is not None:
-				self.logger.error('Cannot getIndex() ValueError for {0}'.format(searchTerm))
-			return [-1, -1]
-		except TypeError:
-			if self.logger is not None:
-				self.logger.error('Cannot getIndex() TypeError for {0}'.format(searchTerm))
+			if searchTerm.upper() in self.line.upper():
+				startIndex = self.line.index(searchTerm)
+				endIndex   = len(searchTerm) + startIndex
+				return [startIndex, endIndex]
+			else:
+				if self.logger is not None:
+					self.logger.warning('Cannot find {0} in {1}'.format(searchTerm, self.line))
+				return [-1, -1]
+		except:
 			return [-1, -1]
 
 	def setName(self, line, lineNumber=0):
@@ -279,7 +287,7 @@ class Defaulter:
 				return index
 		return -1
 
-	def setCounties(self):
+	def initCounties(self):
 		self.countyList = ['CO. ANTRIM'
 			,'CO. ARMAGH'
 			,'CO. CARLOW'

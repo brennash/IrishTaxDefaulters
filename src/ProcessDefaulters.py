@@ -109,8 +109,9 @@ class ProcessDefaulters:
 		"""
 
 		defaulterList = []
+		pageRegex     = re.compile('^\s{20,}[0-9]+$')
 		for index, line in enumerate(inputText):
-			if startIndex <= index and index <= endIndex:
+			if startIndex <= index and index <= endIndex and 'Defaulters' not in line and not pageRegex.match(line):
 				startLine, endLine, totalChars = self.parseLine(line)
 				if totalChars > 50 and startLine == 0:
 					defaulterList.append(Defaulter(line, index))
@@ -313,7 +314,8 @@ class ProcessDefaulters:
 				profSet.add(prof)
 
 		for prof in profSet:
-			print prof, profList[prof], finesList[prof]
+			if profList[prof] > 5.0:
+				print prof, profList[prof], finesList[prof]
 
 def getConfig(filename):
 	""" 
