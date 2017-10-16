@@ -134,7 +134,11 @@ class Defaulter:
 				self.name = line[0:validList[-1]].rstrip().encode("utf8")
 
 	def setAddress(self, line, lineNumber=0):
-
+		""" Sets the address of the defaulter, which is
+		    typically the second column in the input data. No
+		    data is returned, however, the address details are 
+		    set in the address variable as a string.
+		"""
 		if self.containsCounty(line):
 			nameIndex       = len(self.name)
 			addressStr      = line[nameIndex:].lstrip().rstrip()
@@ -270,6 +274,8 @@ class Defaulter:
 			if county in line:
 				index = line.index(county)
 				index = index + len(county)
+				if line[index] == '.' or line[index] == ',':
+					index += 1
 				return index
 		return -1
 
