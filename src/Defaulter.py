@@ -4,7 +4,7 @@ import logging
 
 class Defaulter:
 
-	def __init__(self, line, lineNumber=0):
+	def __init__(self, line, lineNumber=None, verboseFlag=False, prevIndexes=None):
 		""" 
 		Construct the defaulter object using the line read from the
 		defaulters file, and including a lineNumber for error tracking.
@@ -25,6 +25,19 @@ class Defaulter:
 		self.numCharges   = 0
 		self.line         = line
 		self.chargeList   = []
+		self.verbose      = verboseFlag
+
+		# Used to index the postion of each 
+		# element in the line.
+		self.nameIndex       = None
+		self.addressIndex    = None
+		self.professionIndex = None
+		self.sentenceIndex   = None
+		self.fineIndex       = None
+		self.numChargesIndex = None
+
+		# The previous defaulter indexes
+		self.prevIndexes     = None
 
 		# Set the default encoding
 		reload(sys)
@@ -39,41 +52,80 @@ class Defaulter:
 		# Create the list of counties
 		self.initCounties()
 
-		# Now process the names
-		self.setName(line, lineNumber)
-		self.setAddress(line, lineNumber)
-		self.setProfession(line, lineNumber)
+		# Now process the line into name/address/occupation etc. 
+		self.processLine(line)
+
+
+
+	def processLine(self, line, lineNumber=0):
+
+		tokens    = re.split(r'\s{2,}', line)
+
+		# Sets the county splits 
 		self.setCounty(line, lineNumber)
-		self.setFine(line, lineNumber)
-		self.setSentence(line, lineNumber)
-		self.setNumCharges(line, lineNumber)
+
+		if len(tokens) == 5:
+			self.name            = tokens[0].strip()
+			self.nameIndex       = self.getIndex(line, self.name, 0)
+
+			self.address         = tokens[1].strip()
+			self.addressIndex    = self.getIndex(line, self.address, self.nameIndex[1])
+
+			self.profession      = tokens[2].strip()
+			self.professionIndex = self.getIndex(line, self.profession, self.addressIndex[1])
+
+			self.fineStr         = tokens[3].strip()
+			self.fine            = self.toFloat(self.fineStr, lineNumber)
+			self.fineIndex       = self.getIndex(line, self.fine, self.professionIndex[1])
+
+			if tokens[4].strip().isdigit():
+				self.numCharges      = int(tokens[4].strip())
+				self.numChargesIndex = self.getIndex(line, self.numCharges, self.fineIndex[1])
+
+		elif len(tokens) == 6:
+			self.name            = tokens[0].strip()
+			self.nameIndex       = self.getIndex(line, self.name, 0)
+
+			self.address         = tokens[1].strip()
+			self.addressIndex    = self.getIndex(line, self.address, self.nameIndex[1])
+
+			self.profession      = tokens[2].strip()
+			self.professionIndex = self.getIndex(line, self.profession, self.addressIndex[1])
+
+			self.fineStr         = tokens[3].strip()
+			self.fine            = self.toFloat(self.fineStr, lineNumber)
+			self.fineIndex       = self.getIndex(line, self.fine, self.professionIndex[1])
+
+			self.sentence        = tokens[4].strip()
+			self.sentenceIndex   = self.getIndex(line, self.sentence, self.professionIndex[1])
+
+			if tokens[5].strip().isdigit():
+				self.numCharges      = int(tokens[5].strip())
+				self.numChargesIndex = self.getIndex(line, self.numCharges, self.sentenceIndex[1])
+		else:
+			if self.logger is not None:
+				self.logger.warning('Cannot parse line number {0} - {1}'.format(lineNumber, line))
+
 
 	def update(self, line):
 		""" 
 		Function called to append details to multi-line entries in the 
 		input files. 
 		"""
+		if self.nameIndex is not None and self.nameIndex is not None and self.nameIndex[0] != -1 and self.getSubString(line, self.nameIndex) != '':
+			self.name = self.getSubString(line, self.nameIndex) + ' ' + self.name
 
-		nameIndexList       = self.getIndex(self.name)
-		addressIndexList    = self.getIndex(self.address)
-		professionIndexList = self.getIndex(self.profession)
-		fineIndexList       = self.getIndex(self.fineStr)
-		sentenceIndexList   = self.getIndex(self.sentence)
+		if self.addressIndex is not None and self.addressIndex[0] != -1 and self.getSubString(line, self.addressIndex) != '':
+			self.address = self.address + ' ' + self.getSubString(line, self.addressIndex)
 
-		if nameIndexList[0] != -1 and self.getSubString(line, nameIndexList) != '':
-			self.name = self.getSubString(line, nameIndexList) + ' ' + self.name
+		if self.professionIndex is not None and self.professionIndex[0] != -1 and self.getSubString(line, self.professionIndex) != '':
+			self.profession = self.profession + ' ' + self.getSubString(line, self.professionIndex)
 
-		if addressIndexList[0] != -1 and self.getSubString(line, addressIndexList) != '':
-			self.address = self.address + ' ' + self.getSubString(line, addressIndexList)
+		if self.fineIndex is not None and self.fineIndex[0] != -1 and self.getSubString(line, self.fineIndex) != '':
+			self.fineStr = self.fineStr + ' ' + self.getSubString(line, self.fineIndex)
 
-		if self.getSubString(line, professionIndexList) != '':
-			self.profession = self.profession + ' ' + self.getSubString(line, professionIndexList)
-
-		if self.getSubString(line, fineIndexList) != '':
-			self.fineStr = self.fineStr + ' ' + self.getSubString(line, fineIndexList)
-
-		if self.getSubString(line, sentenceIndexList) != '':
-			self.sentence = self.sentence + ' ' + self.getSubString(line, sentenceIndexList)
+		if self.sentenceIndex is not None and self.sentenceIndex[0] != -1 and self.getSubString(line, self.sentenceIndex) != '':
+			self.sentence = self.sentence + ' ' + self.getSubString(line, self.sentenceIndex)
 
 		# Re-set the county if needs be
 		self.setCounty(line)
@@ -86,12 +138,11 @@ class Defaulter:
 			return ''
 		elif len(indexList) != 2:
 			return ''
-		elif indexList[0] == -1 and indexList[1] == -1:
+		elif indexList[0] == -1 or indexList[1] == -1:
 			return ''
 		else:
 			startIndex = indexList[0]
 			endIndex   = indexList[1]
-
 			try:
 				if startIndex != -1:
 					subString = line[startIndex:endIndex]
@@ -102,26 +153,34 @@ class Defaulter:
 				else:
 					return ''
 			except Exception, err:
+				if self.logger is not None:
+					self.logger.error('Defaulter:getSubString() - {0}'.format(err))
 				return ''
 
 	def getString(self):
-		result = '{0}, '.format(self.getName())
+		result  = '{0}, '.format(self.getName())
 		result += '{0}, '.format(self.getAddress())
 		result += '{0}, '.format(self.getCounty())
 		result += '{0}'.format(self.getProfession())
 		return result
 
-	def getIndex(self, searchTerm):
+	def getIndex(self, line, searchTerm, beginIndex):
+		""" 
+		Returns the start and end index of the particular term if it
+		occurs in the original input line. Otherwise returns a 
+		2-element array contain -1.
+		"""
 		try:
-			if searchTerm.upper() in self.line.upper():
-				startIndex = self.line.index(searchTerm)
-				endIndex   = len(searchTerm) + startIndex
-				return [startIndex, endIndex]
-			else:
-				if self.logger is not None:
-					self.logger.warning('Cannot find {0} in {1}'.format(searchTerm, self.line))
+			startIndex     = line.find(searchTerm,beginIndex)
+			endIndex       = startIndex + len(searchTerm)
+			indexList      = [startIndex, endIndex]
+			if startIndex == -1:
 				return [-1, -1]
-		except:
+			else:
+				return indexList
+		except Exception, err:
+			if self.logger is not None:
+				self.logger.warning('Cannot find {0} in line {1}'.format(searchTerm, line))
 			return [-1, -1]
 
 	def setName(self, line, lineNumber=0):
@@ -132,6 +191,7 @@ class Defaulter:
 			if '  ' in line[0:28]:
 				index = line.index('  ')
 				self.name = line[0:index].encode("utf8")
+				self.nameIndex = [0, index]
 			else:
 				# Otherwise find the most appropriate spacing
 				indexList = self.getIndexList(line, ' ')
@@ -139,7 +199,8 @@ class Defaulter:
 				for index in indexList:
 					if index >= 4 and index <= 25:
 						validList.append(index)
-				self.name = line[0:validList[-1]].rstrip().encode("utf8")
+				self.name      = line[0:validList[-1]].rstrip().encode("utf8")
+				self.nameIndex = [0, validList[-1]]
 
 	def setAddress(self, line, lineNumber=0):
 		""" Sets the address of the defaulter, which is
@@ -152,26 +213,45 @@ class Defaulter:
 			addressStr      = line[nameIndex:].lstrip().rstrip()
 			addressEndIndex = self.getCountyIndex(addressStr)
 			self.address    = addressStr[0:addressEndIndex].encode("utf8")
+
+			startIndex      = self.line.find(self.address,self.nameIndex[1])
+			endIndex        = startIndex + len(self.address)
+			self.addressIndex = [ startIndex, endIndex ]
+
 		elif len(self.name) == 0 and len(line) > 70:
 			self.address = line[18:69].lstrip().rstrip().encode("utf8")
+
+			startIndex      = self.line.find(self.address,self.nameIndex[1])
+			endIndex        = startIndex + len(self.addresS)
+			self.addressIndex = [ startIndex, endIndex ]
 		else:
 			nameIndex  = len(self.name)
 			addressStr = line[nameIndex:].lstrip().rstrip()
 
 			if '  ' in addressStr or '\t' in addressStr:
-				tokens = addressStr.split('  ')
-				self.address = tokens[0]
+				tokens            = addressStr.split('  ')
+				self.address      = tokens[0]
+				startIndex        = self.line.find(self.address,self.nameIndex[1])
+				endIndex          = startIndex + len(self.address)
+				self.addressIndex = [ startIndex, endIndex ]
 			else:
 				if '  ' in addressStr[0:50]:
-					tokens = addressStr.split('  ')
+					tokens       = addressStr.split('  ')
 					self.address = tokens[0]
+					startIndex        = self.line.find(self.address,self.nameIndex[1])
+					endIndex          = startIndex + len(self.address)
+					self.addressIndex = [ startIndex, endIndex ]
 				else:
-					indexList = self.getIndexList(addressStr, ' ')
-					validList = []
+					indexList    = self.getIndexList(addressStr, ' ')
+					validList    = []
 					for index in indexList:
 						if index >= 5 and index <= 50:
 							validList.append(index)
-					self.address = addressStr[0:validList[-1]].rstrip().encode("utf8")
+					self.address      = addressStr[0:validList[-1]].rstrip().encode("utf8")
+					startIndex        = self.line.find(self.address,self.nameIndex[1])
+					endIndex          = startIndex + len(self.addresS)
+					self.addressIndex = [ startIndex, endIndex ]
+
 
 	def setProfession(self, line, lineNumber):
 
@@ -181,11 +261,14 @@ class Defaulter:
 			# Fine the index position of the address in the string
 			index            = line.index(self.address)
 			addrLen          = len(self.address)
-			professionStr    = line[(index+addrLen):].lstrip().rstrip()
+			professionStr    = line[self.addressIndex[1]+1:].lstrip().rstrip()
 
 			if '  ' in professionStr:
 				tokens = professionStr.split('  ')
-				self.profession = tokens[0]
+				self.profession      = tokens[0]
+				startIndex           = self.line.find(self.profession,self.addressIndex[1])
+				endIndex             = startIndex + len(self.profession)
+				self.professionIndex = [ startIndex, endIndex ]
 			else:
 				try:
 					indexList = self.getIndexList(professionStr, ' ')
@@ -194,11 +277,13 @@ class Defaulter:
 						if index >= 5 and index <= 25:
 							validList.append(index)
 					self.profession = professionStr[0:validList[-1]].rstrip()
+					startIndex           = self.line.find(self.profession,self.addressIndex[1])
+					endIndex             = startIndex + len(self.profession)
+					self.professionIndex = [ startIndex, endIndex ]
 				except:
 					if self.logger is not None:
 						self.logger.error('Problem finding profession for {0}'.format(line))
-					else:
-						print line
+
 
 	def setFine(self, line, lineNumber):
 		""" 
@@ -210,12 +295,15 @@ class Defaulter:
 			# Fine the index position of the profession in the string
 			index            = line.index(self.profession)
 			profLen          = len(self.profession)
-			fineStr          = line[(index+profLen):].lstrip().rstrip()
+			fineStr          = line[self.professionIndex[1]+1:].lstrip().rstrip()
 
 			if '  ' in fineStr:
-				tokens       = fineStr.split('  ')
-				self.fineStr = tokens[0]
-				self.fine    = self.toFloat(tokens[0], lineNumber)
+				tokens         = fineStr.split('  ')
+				self.fineStr   = tokens[0]
+				self.fine      = self.toFloat(tokens[0], lineNumber)
+				startIndex     = self.line.find(self.fineStr,self.professionIndex[1])
+				endIndex       = startIndex + len(self.fineStr)
+				self.fineIndex = [ startIndex, endIndex ]
 			else:
 				indexList = self.getIndexList(fineStr, ' ')
 				validList = []
@@ -223,8 +311,12 @@ class Defaulter:
 					if index >= 5 and index <= 25:
 						validList.append(index)
 				if len(validList) > 0:
-					self.fineStr = fineStr[0:validList[-1]].rstrip()
-					self.fine    = self.toFloat(fineStr[0:validList[-1]].rstrip(), lineNumber)
+					self.fineStr   = fineStr[0:validList[-1]].rstrip()
+					self.fine      = self.toFloat(fineStr[0:validList[-1]].rstrip(), lineNumber)
+					startIndex     = self.line.find(self.fineStr,self.professionIndex[1])
+					endIndex       = startIndex + len(self.fine)
+					self.fineIndex = [ startIndex, endIndex ]
+
 
 	def setSentence(self, line, lineNumber=0):
 		""" 
@@ -236,20 +328,29 @@ class Defaulter:
 			# Fine the index position of the profession in the string
 			index            = self.getIndex(self.fineStr)
 			fineLen          = len(self.fineStr)
-			sentenceStr      = line[(index[0]+fineLen):].lstrip().rstrip()
+			if self.fineIndex is not None:
+				sentenceStr      = line[self.fineIndex[1]+1:].lstrip().rstrip()
+			else:
+				sentenceStr      = line[self.professionIndex[1]+1:].lstrip().rstrip()
 			charRegex        = re.compile('[a-zA-Z]+')
 
 			if charRegex.match(sentenceStr) or 'YEARS' in sentenceStr or 'MONTHS' in sentenceStr or 'DAYS' in sentenceStr:
 				if '  ' in sentenceStr:
-					tokens = sentenceStr.split('  ')
-					self.sentence = tokens[0]
+					tokens            = sentenceStr.split('  ')
+					self.sentence     = tokens[0]
+					startIndex        = self.line.find(self.sentence,self.fineIndex[1])
+					endIndex          = startIndex + len(self.sentence)
+					self.setenceIndex = [ startIndex, endIndex ]
 				else:
 					indexList = self.getIndexList(sentenceStr, ' ')
 					validList = []
 					for index in indexList:
 						if index >= 5 and index <= 25:
 							validList.append(index)
-					self.sentence = sentenceStr[0:validList[-1]].rstrip()
+					self.sentence     = sentenceStr[0:validList[-1]].rstrip()
+					startIndex        = self.line.find(self.sentence,self.fineIndex[1])
+					endIndex          = startIndex + len(self.sentence)
+					self.setenceIndex = [ startIndex, endIndex ]
 		else:
 			if self.logger is not None:
 				self.logger.warning('Trying to set the sentence with no name/address set')
@@ -430,3 +531,9 @@ class Defaulter:
 		if self.name != '' and self.address != '' and self.profession != '':
 			return True
 		return False
+
+	def getNameIndex(self):
+		return self.nameIndex
+
+	def getProfessionIndex(self):
+		return self.professionIndex

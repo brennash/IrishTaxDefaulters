@@ -114,7 +114,7 @@ class ProcessDefaulters:
 			if startIndex <= index and index <= endIndex and 'Defaulters' not in line and not pageRegex.match(line):
 				startLine, endLine, totalChars = self.parseLine(line)
 				if totalChars > 50 and startLine == 0:
-					defaulterList.append(Defaulter(line, index))
+					defaulterList.append(Defaulter(line=line, lineNumber=index, verboseFlag=False))
 					defaulterList[-1].addCharge(charge)
 				elif len(defaulterList) > 0:
 					defaulterList[-1].update(line)
