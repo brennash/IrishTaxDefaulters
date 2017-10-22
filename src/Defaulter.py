@@ -4,7 +4,7 @@ import logging
 
 class Defaulter:
 
-	def __init__(self, line, lineNumber=None, verboseFlag=False, prevIndexes=None):
+	def __init__(self, line, lineNumber=None, verboseFlag=False):
 		""" 
 		Construct the defaulter object using the line read from the
 		defaulters file, and including a lineNumber for error tracking.
@@ -53,7 +53,7 @@ class Defaulter:
 		self.initCounties()
 
 		# Now process the line into name/address/occupation etc. 
-		self.processLine(line)
+		self.processLine(line, lineNumber)
 
 
 
@@ -179,8 +179,6 @@ class Defaulter:
 			else:
 				return indexList
 		except Exception, err:
-			if self.logger is not None:
-				self.logger.warning('Cannot find {0} in line {1}'.format(searchTerm, line))
 			return [-1, -1]
 
 	def setName(self, line, lineNumber=0):
@@ -537,3 +535,6 @@ class Defaulter:
 
 	def getProfessionIndex(self):
 		return self.professionIndex
+
+	def printDetails(self):
+		print '{0},{1},{2},{3}'.format(self.name, self.address, self.profession, self.sentence)

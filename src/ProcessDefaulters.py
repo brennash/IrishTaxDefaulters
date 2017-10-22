@@ -83,13 +83,6 @@ class ProcessDefaulters:
 
 		inputText, charges, sectionStart, sectionEnd = self.getSections(inputFilename)
 
-		if self.logger is not None:
-			self.logger.info('Splitting {0} into the following'.format(inputFilename))
-			self.logger.info('{0} lines of inputText'.format(len(inputText)))
-			self.logger.info('{0} different charges'.format(len(charges)))
-			self.logger.info('{0} section start index markers'.format(len(sectionStart)))
-			self.logger.info('{0} section end index markers'.format(len(sectionEnd)))
-
 		# Add any new charges
 		for charge in charges:
 			self.charges.add(charge)
@@ -300,8 +293,6 @@ class ProcessDefaulters:
 		profList      = {}
 		finesList     = {}
 
-		print 'SUMMARY',len(self.defaultersList)
-
 		for defaulter in self.defaultersList:
 			prof = defaulter.getProfession()
 			fine = defaulter.getFine()
@@ -314,8 +305,12 @@ class ProcessDefaulters:
 				profSet.add(prof)
 
 		for prof in profSet:
-			if profList[prof] > 5.0:
+			if profList[prof] > 3.0:
 				print prof, profList[prof], finesList[prof]
+
+		for defaulter in self.defaultersList:
+			if defaulter.hasSentence():
+				defaulter.printDetails()
 
 def getConfig(filename):
 	""" 
