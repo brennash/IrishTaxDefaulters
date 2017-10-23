@@ -109,10 +109,22 @@ class ProcessDefaulters:
 				if totalChars > 50 and startLine == 0:
 					defaulterList.append(Defaulter(line=line, lineNumber=index, verboseFlag=False))
 					defaulterList[-1].addCharge(charge)
-				elif len(defaulterList) > 0:
+				elif len(defaulterList) > 0 and not self.isChargeLine(line):
 					defaulterList[-1].update(line)
 		return defaulterList
 
+	def isChargeLine(self, line):
+                """
+                Checks to see if a particular line contains a
+                charge header. Used to ensure that charges are not
+                processed as updates to defaulter information.
+
+                Returns TRUE is a charge is found in the line, and FALSE otherwise.
+                """
+		for charge in self.charges:
+			if charge.upper() in line.upper():
+				return True
+		return False
 
 	def getSections(self, inputFilename):
 		""" 
