@@ -112,11 +112,21 @@ class Defaulter:
 		Function called to append details to multi-line entries in the 
 		input files. 
 		"""
+
+		if self.name == 'BOYLE, JOHN':
+			print 'OK'
+
 		if self.nameIndex is not None and self.nameIndex is not None and self.nameIndex[0] != -1 and self.getSubString(line, self.nameIndex) != '':
 			self.name = self.getSubString(line, self.nameIndex) + ' ' + self.name
 
 		if self.addressIndex is not None and self.addressIndex[0] != -1 and self.getSubString(line, self.addressIndex) != '':
+			if self.name == 'BOYLE, JOHN':
+				print self.address
+				print self.addressIndex
+				print line
+				print self.getSubString(line, self.addressIndex)
 			self.address = self.address + ' ' + self.getSubString(line, self.addressIndex)
+
 
 		if self.professionIndex is not None and self.professionIndex[0] != -1 and self.getSubString(line, self.professionIndex) != '':
 			self.profession = self.profession + ' ' + self.getSubString(line, self.professionIndex)

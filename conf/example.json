@@ -1,4 +1,4 @@
 {
-	"log-filename": "/blah/blah/IrishTaxDefaulters/log/process-defaulters.log",
-	"data-folder": "/blah/blah/IrishTaxDefaulters/data"
+	"log-filename": "/...blah.../IrishTaxDefaulters/log/process-defaulters.log",
+	"data-folder": "/...blah.../IrishTaxDefaulters/IrishTaxDefaulters/data"
 }

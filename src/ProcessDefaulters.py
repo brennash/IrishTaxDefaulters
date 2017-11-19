@@ -111,6 +111,10 @@ class ProcessDefaulters:
 					defaulterList[-1].addCharge(charge)
 				elif len(defaulterList) > 0 and not self.isChargeLine(line):
 					defaulterList[-1].update(line)
+				elif len(defaulterList) > 0 and defaulterList[-1].getName() == 'BOYLE, JOHN':
+					print line, 'UPDATE'
+					print self.isChargeLine(line)
+
 		return defaulterList
 
 	def isChargeLine(self, line):
@@ -131,10 +135,6 @@ class ProcessDefaulters:
 		Reads the input file and splits out the text by sections, 
 		record the start/end index, and type of charge for each section
 		as lists.
-
-		@inputText    - The input text of the file as a list of lines. 
-		@chargeList   - A list of strings giving the charges for each section.
-		@sectionStart - A list of ints giving the start index of the 
 		"""
 
 		sectionStart = []
@@ -143,12 +143,11 @@ class ProcessDefaulters:
 		inputText    = []
 
 		inputFile    = open(inputFilename, 'rb')
-		nameRegex    = re.compile('^(Name)')
 		prevLine     = ''
 
 		for index, line in enumerate(inputFile):
 			inputText.append(line)
-			if nameRegex.match(line):
+			if 'Name ' in line and 'Address ' in line:
 				sectionStart.append(index+1)
 				chargeList.append(prevLine.strip())
 				if len(sectionStart) > 1:
