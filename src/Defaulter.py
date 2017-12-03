@@ -4,15 +4,9 @@ import logging
 
 class Defaulter:
 
-	def __init__(self, line, lineNumber=None, verboseFlag=False):
-		""" 
-		Construct the defaulter object using the line read from the
-		defaulters file, and including a lineNumber for error tracking.
-
-		Inputs
-		~~~~~~
-		line - A string value from the file.
-		lineNumber - An int giving the line number from the file (default set to zero).
+	def __init__(self):
+		"""
+		   Basic constructor for an empty Defaulter instance.
 		"""
 
 		self.name         = ''
@@ -23,21 +17,17 @@ class Defaulter:
 		self.fineStr      = ''
 		self.fine         = 0.0
 		self.numCharges   = 0
-		self.line         = line
+		self.lines        = []
 		self.chargeList   = []
-		self.verbose      = verboseFlag
 
 		# Used to index the postion of each 
 		# element in the line.
-		self.nameIndex       = None
-		self.addressIndex    = None
-		self.professionIndex = None
-		self.sentenceIndex   = None
-		self.fineIndex       = None
-		self.numChargesIndex = None
-
-		# The previous defaulter indexes
-		self.prevIndexes     = None
+		self.nameIndex       = []
+		self.addressIndex    = []
+		self.professionIndex = []
+		self.sentenceIndex   = []
+		self.fineIndex       = []
+		self.numChargesIndex = []
 
 		# Set the default encoding
 		reload(sys)
@@ -49,96 +39,28 @@ class Defaulter:
 		except:
 			self.logger = None
 
-		# Create the list of counties
-		self.initCounties()
+	def addLine(self, line):
 
-		# Now process the line into name/address/occupation etc. 
-		self.processLine(line, lineNumber)
+		try:
+			if len(self.lines) == 0:
+				# Add the line to the list of lines
+				self.lines.append(line.strip())
 
+				# Now tokenize the line 
+				tokens          = re.split(' {2}',line)
 
+				if len(tokens) >= 3:
+					self.name       = tokens[0]
+					self.address    = tokens[1]
+					self.occupation = tokens[2]
+					print 'Name',self.name,' Address',self.address,' Occupation',self.occupation
+			else:
+				tokens       = re.split(' {2,}',line)
+				
+		except Exception, err:
+			print line, err
+			exit(1)
 
-	def processLine(self, line, lineNumber=0):
-
-		tokens    = re.split(r'\s{2,}', line)
-
-		# Sets the county splits 
-		self.setCounty(line, lineNumber)
-
-		if len(tokens) == 5:
-			self.name            = tokens[0].strip()
-			self.nameIndex       = self.getIndex(line, self.name, 0)
-
-			self.address         = tokens[1].strip()
-			self.addressIndex    = self.getIndex(line, self.address, self.nameIndex[1])
-
-			self.profession      = tokens[2].strip()
-			self.professionIndex = self.getIndex(line, self.profession, self.addressIndex[1])
-
-			self.fineStr         = tokens[3].strip()
-			self.fine            = self.toFloat(self.fineStr, lineNumber)
-			self.fineIndex       = self.getIndex(line, self.fine, self.professionIndex[1])
-
-			if tokens[4].strip().isdigit():
-				self.numCharges      = int(tokens[4].strip())
-				self.numChargesIndex = self.getIndex(line, self.numCharges, self.fineIndex[1])
-
-		elif len(tokens) == 6:
-			self.name            = tokens[0].strip()
-			self.nameIndex       = self.getIndex(line, self.name, 0)
-
-			self.address         = tokens[1].strip()
-			self.addressIndex    = self.getIndex(line, self.address, self.nameIndex[1])
-
-			self.profession      = tokens[2].strip()
-			self.professionIndex = self.getIndex(line, self.profession, self.addressIndex[1])
-
-			self.fineStr         = tokens[3].strip()
-			self.fine            = self.toFloat(self.fineStr, lineNumber)
-			self.fineIndex       = self.getIndex(line, self.fine, self.professionIndex[1])
-
-			self.sentence        = tokens[4].strip()
-			self.sentenceIndex   = self.getIndex(line, self.sentence, self.professionIndex[1])
-
-			if tokens[5].strip().isdigit():
-				self.numCharges      = int(tokens[5].strip())
-				self.numChargesIndex = self.getIndex(line, self.numCharges, self.sentenceIndex[1])
-		else:
-			if self.logger is not None:
-				self.logger.warning('Cannot parse line number {0} - {1}'.format(lineNumber, line))
-
-
-	def update(self, line):
-		""" 
-		Function called to append details to multi-line entries in the 
-		input files. 
-		"""
-
-		if self.name == 'BOYLE, JOHN':
-			print 'OK'
-
-		if self.nameIndex is not None and self.nameIndex is not None and self.nameIndex[0] != -1 and self.getSubString(line, self.nameIndex) != '':
-			self.name = self.getSubString(line, self.nameIndex) + ' ' + self.name
-
-		if self.addressIndex is not None and self.addressIndex[0] != -1 and self.getSubString(line, self.addressIndex) != '':
-			if self.name == 'BOYLE, JOHN':
-				print self.address
-				print self.addressIndex
-				print line
-				print self.getSubString(line, self.addressIndex)
-			self.address = self.address + ' ' + self.getSubString(line, self.addressIndex)
-
-
-		if self.professionIndex is not None and self.professionIndex[0] != -1 and self.getSubString(line, self.professionIndex) != '':
-			self.profession = self.profession + ' ' + self.getSubString(line, self.professionIndex)
-
-		if self.fineIndex is not None and self.fineIndex[0] != -1 and self.getSubString(line, self.fineIndex) != '':
-			self.fineStr = self.fineStr + ' ' + self.getSubString(line, self.fineIndex)
-
-		if self.sentenceIndex is not None and self.sentenceIndex[0] != -1 and self.getSubString(line, self.sentenceIndex) != '':
-			self.sentence = self.sentence + ' ' + self.getSubString(line, self.sentenceIndex)
-
-		# Re-set the county if needs be
-		self.setCounty(line)
 
 	def getSubString(self, line, indexList):
 

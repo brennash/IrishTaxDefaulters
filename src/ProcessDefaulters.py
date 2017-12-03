@@ -49,7 +49,9 @@ class ProcessDefaulters:
 		Called to run the processing of the defaulters, instantiate the 
 		defaulters list and execute the summary analysis.
 		"""
+
 		self.loadFiles(configDict['data-folder'])
+
 		self.printSummary()
 
 	def loadFiles(self, dir):
@@ -81,19 +83,44 @@ class ProcessDefaulters:
 		The processFile() function iterates over each section.
 		"""
 
-		inputText, charges, sectionStart, sectionEnd = self.getSections(inputFilename)
+		headerLine       = ''
+		currentCharge    = ''
+		prevLine         = ''
+		reader           = self.unicodeReader(open(inputFilename, 'rU'))
+		emptyRegex       = re.compile('^\s*$')
+		headerRegex      = re.compile('^(Name){1}\s+(Address)')
 
-		# Add any new charges
-		for charge in charges:
-			self.charges.add(charge)
+		for line in reader:
 
-		for index, startIndex in enumerate(sectionStart):
-			endIndex             = sectionEnd[index]
-			charge               = charges[index]
-			self.defaultersList += self.processSection(inputText, charge, startIndex, endIndex)
+			# If it's not an empty line, process it
+			if not emptyRegex.match(line.strip()):
+				if headerRegex.match(line.strip()):
+					headerLine    = line.strip()
+					currentCharge = prevLine
+				elif currentCharge != '' and prevLine != '' and not headerRegex.match(prevLine):
+					defaulter.addLine(prevLine)
+				prevLine = line.strip()
 
-		if self.logger is not None:
-			self.logger.info('Processed {0} defaulters in {1}'.format(len(self.defaultersList), inputFilename))
+			# Every line break you add a new defaulter
+			else:
+				if currentCharge != '':
+					self.defaultersList.append(defaulter)
+				defaulter = Defaulter()
+			
+
+
+        def unicodeReader(self, fileReader):
+		""" 
+		    A more robust file reader that can handle nonsense characters, 
+		    null bytes and the like.
+		"""
+		while True:
+			try:
+				yield next(fileReader)
+			except csv.Error:
+				pass
+			continue
+		return
 
 
 	def processSection(self, inputText, charge, startIndex, endIndex):
