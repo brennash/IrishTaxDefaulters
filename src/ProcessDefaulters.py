@@ -1,3 +1,15 @@
+#################################################
+#												#
+# This class takes in a text file input of the	#
+# tax defaulters list, and parses it to extract #
+# individual defaulter information such as 		#
+# name, address and fine amount.				#
+#												#
+# Author:  Shane Brennan						#
+# Date:    20171216								#
+# Version: 0.1									#
+#################################################
+
 import io
 import re
 import os
@@ -19,18 +31,21 @@ class ProcessDefaulters:
 
 		self.keywordList    = {}
 		self.keywordSet     = Set()
-		self.charges        = Set()
 		self.logger         = None
+
 		self.defaultersList = []
 
 		if configDict is not None:
-			self.setupLogging(configDict,False)
-			self.run(configDict)
+			self.setupLogging(configDict, False)
+			self.run(configDict, False)
 
 	def setupLogging(self, configDict, flaskApp=False):
                 """ Sets up the rotating file logger for the parser. This records logs to a
                     specified backup location, in this case ./logs/parser.log. The log file location
                     is stored in a JSON configuration script passed to the CreateFeatures at runtime.
+
+		    configDict - A dict object containing configuration settings
+		    flaskApp   - A register to flag whether the class is being run as a Flask Application
                 """
 		if not flaskApp:
 			self.logger = logging.getLogger(__name__)
@@ -44,23 +59,17 @@ class ProcessDefaulters:
 		else:
 			self.logger = logging.getLogger('App')
 
-	def run(self, configDict):
+	def run(self, configDict, flaskApp=False):
 		""" 
-		Called to run the processing of the defaulters, instantiate the 
-		defaulters list and execute the summary analysis.
+		   Called to run the processing of the defaulters, instantiate the 
+		   defaulters list and execute the summary analysis.
+
+		   configDict - A dict object containing configuration settings		
+		   flaskApp   - A register to flag whether the class is being run as a Flask Application
 		"""
 
-		self.loadFiles(configDict['data-folder'])
-
-		self.printSummary()
-
-	def loadFiles(self, dir):
-		""" 
-		Recursively parses through a provided input data folder, extracting 
-		and reading all the input files therein.
-
-		@dir - The string describing the root data directory.
-		"""
+		# Retrieve the data folder
+		dir = configDict['data-folder']
 
 		# Parse the folder for the files
 		for root, dirs, files in os.walk(dir):
@@ -70,43 +79,71 @@ class ProcessDefaulters:
 					if self.logger is not None:
 						self.logger.info('Reading input data file {0}'.format(filename))
 					self.processFile(root+os.sep+filename)
-		# Try to log the output
+
+		# Log the output
 		if self.logger is not None:
 			self.logger.info('Processed {0} defaulters'.format(len(self.defaultersList)))
-
-		# Process the keywords for indexing and lookup
-		self.processKeywords()
 
 
 	def processFile(self, inputFilename):
 		""" 
-		The processFile() function iterates over each section.
+		   The processFile() function iterates over each section. Basically 
+		   this operates in three passes, first to assign the types to each 
+		   line in the input file, second to adjust the lines which contain
+		   the charges, and lastly to process each defaulter line. 
+	
+		   inputFilename - The name and path of the file to be processed
 		"""
 
-		headerLine       = ''
-		currentCharge    = ''
-		prevLine         = ''
 		reader           = self.unicodeReader(open(inputFilename, 'rU'))
 		emptyRegex       = re.compile('^\s*$')
+		pageRegex        = re.compile('^\s+[0-9]+$')
 		headerRegex      = re.compile('^(Name){1}\s+(Address)')
+		notesRegex       = re.compile('^\s*[a-zA-Z]{1}[a-z]+')
 
+		lines        = []
+		lineTypes    = []
+		index        = 0
+
+		# The first pass to figure out whos a 
+		# defaulter and who's not.
 		for line in reader:
-
-			# If it's not an empty line, process it
-			if not emptyRegex.match(line.strip()):
-				if headerRegex.match(line.strip()):
-					headerLine    = line.strip()
-					currentCharge = prevLine
-				elif currentCharge != '' and prevLine != '' and not headerRegex.match(prevLine):
-					defaulter.addLine(prevLine)
-				prevLine = line.strip()
-
-			# Every line break you add a new defaulter
+			lines.append(line)
+			if emptyRegex.match(line):
+				lineTypes.append('EMPTY')
+			elif pageRegex.match(line):
+				lineTypes.append('PAGE')
+			elif headerRegex.match(line):
+				lineTypes.append('HEADER')
+			elif notesRegex.match(line):
+				lineTypes.append('NOTES')
 			else:
-				if currentCharge != '':
-					self.defaultersList.append(defaulter)
-				defaulter = Defaulter()
-			
+				lineTypes.append('DEFAULTER')
+			index += 1
+
+		# Find and set the lines with the charges
+		lastDefaulterIndex = 0
+		for index, type in enumerate(lineTypes):
+			if type == 'DEFAULTER':
+				lastDefaulterIndex = index
+			elif type == 'HEADER':
+				lineTypes[lastDefaulterIndex] = 'CHARGE'
+
+		currentCharge = 'UNKNOWN'
+
+		for index, type in enumerate(lineTypes):
+			line = lines[index]
+			if type == 'CHARGE':
+				currentCharge = line
+			elif type == 'DEFAULTER' and lineTypes[index-1] != 'DEFAULTER':
+				defaulter = Defaulter(line.rstrip())
+				defaulter.addCharge(currentCharge)
+				self.defaultersList.append(defaulter)
+			elif type == 'DEFAULTER' and lineTypes[index-1] == 'DEFAULTER':			
+				self.defaultersList[-1].update(line.rstrip())
+
+		if self.logger is not None:
+			self.logger.info('Added {0} defaulters'.format(len(self.defaultersList)))
 
 
         def unicodeReader(self, fileReader):
@@ -123,197 +160,9 @@ class ProcessDefaulters:
 		return
 
 
-	def processSection(self, inputText, charge, startIndex, endIndex):
-		""" 
-		Process the list of defaulters, section by section.  
-		"""
-
-		defaulterList = []
-		pageRegex     = re.compile('^\s{20,}[0-9]+$')
-		for index, line in enumerate(inputText):
-			if startIndex <= index and index <= endIndex and 'Defaulters' not in line and not pageRegex.match(line):
-				startLine, endLine, totalChars = self.parseLine(line)
-				if totalChars > 50 and startLine == 0:
-					defaulterList.append(Defaulter(line=line, lineNumber=index, verboseFlag=False))
-					defaulterList[-1].addCharge(charge)
-				elif len(defaulterList) > 0 and not self.isChargeLine(line):
-					defaulterList[-1].update(line)
-				elif len(defaulterList) > 0 and defaulterList[-1].getName() == 'BOYLE, JOHN':
-					print line, 'UPDATE'
-					print self.isChargeLine(line)
-
-		return defaulterList
-
-	def isChargeLine(self, line):
-                """
-                Checks to see if a particular line contains a
-                charge header. Used to ensure that charges are not
-                processed as updates to defaulter information.
-
-                Returns TRUE is a charge is found in the line, and FALSE otherwise.
-                """
-		for charge in self.charges:
-			if charge.upper() in line.upper():
-				return True
-		return False
-
-	def getSections(self, inputFilename):
-		""" 
-		Reads the input file and splits out the text by sections, 
-		record the start/end index, and type of charge for each section
-		as lists.
-		"""
-
-		sectionStart = []
-		sectionEnd   = []
-		chargeList   = []
-		inputText    = []
-
-		inputFile    = open(inputFilename, 'rb')
-		prevLine     = ''
-
-		for index, line in enumerate(inputFile):
-			inputText.append(line)
-			if 'Name ' in line and 'Address ' in line:
-				sectionStart.append(index+1)
-				chargeList.append(prevLine.strip())
-				if len(sectionStart) > 1:
-					sectionEnd.append(index-1)
-			prevLine = line
-		sectionEnd.append(index)
-		return inputText, chargeList, sectionStart, sectionEnd
-
-
-	def parseLine(self, inputLine):
-		""" 
-		Parses through the input text line and returns the 
-		start position of the first character, the end position of 
-		the last (non-whitespace) character and the total number of 
-		non-whitespace characters. 
-
-		@inputLine - a string giving the line to be parsed.
-		"""
-		startText = -1
-		endText   = -1
-		totalText = 0
-		for index, stringChar in enumerate(inputLine):
-			if stringChar != ' ' and startText == -1:
-				startText = index
-			elif stringChar != ' ':
-				totalText += 1
-				endText    = index
-		return startText, endText, totalText
-
-	def searchKeywords(self, rawInputStr):
-		"""
-		Returns a list of defaulters containing at least one of the provided keywords. 
-		"""
-		results = []
-		resultSet = Set()
-
-		# Clean up the input string
-		inputStr = self.cleanString(rawInputStr)
-		inputList = inputStr.split(' ')
-
-		# Parse the input string
-		for keyword in inputList:
-			if keyword in self.keywordSet:
-				indexList = self.keywordList[keyword]
-				for index in indexList:
-					resultSet.add(index)
-
-		# Setup the final results
-		finalResults = Set()
-
-		for resultIndex in resultSet:
-			defaulter       = self.defaultersList[resultIndex]
-			defaulterStr    = self.cleanString(defaulter.getString())
-			defaulterTokens = defaulterStr.split()
-			allKeywords  = True
-			for keyword in inputList:
-				if keyword not in defaulterTokens:
-					allKeywords = False
-			if allKeywords:
-				finalResults.add(resultIndex)
-
-		for resultIndex in finalResults:
-			results.append(self.defaultersList[resultIndex])
-
-		results.sort(key=lambda x: x.getName(), reverse=False)
-
-		return results
-
-
-	def processKeywords(self):
-
-		for index, defaulter in enumerate(self.defaultersList):
-
-			# Build full string of name, address, profession etc.
-			tokens1  = self.cleanString(defaulter.getName()).split(' ')
-			tokens2  = self.cleanString(defaulter.getAddress()).split(' ')
-			tokens3  = self.cleanString(defaulter.getProfession()).split(' ')
-			tokens   = tokens1 + tokens2 + tokens3
-
-			# Parse the tokens for keywords
-			for keyword in tokens:
-				if keyword in self.keywordSet:
-					indexList = self.keywordList[keyword]
-					indexList.append(index)
-					self.keywordList[keyword] = indexList
-				else:
-					self.keywordList[keyword] = [ index ]
-					self.keywordSet.add(keyword)
-
-	def cleanString(self, inputString):
-		""" 
-		Clean up the input line and remove non-character codes.
-		"""
-		outputString = inputString.strip().lower()
-		outputString = outputString.replace('  ',' ')
-		outputString = outputString.replace(',',' ')
-		outputString = outputString.replace('.',' ')
-		outputString = outputString.replace('-',' ')
-		outputString = outputString.replace('_',' ')
-		outputString = outputString.replace('|',' ')
-		outputString = outputString.replace('/',' ')
-		outputString = outputString.replace('\\',' ')
-		outputString = outputString.replace('(',' ')
-		outputString = outputString.replace(')',' ')
-		outputString = outputString.replace('[',' ')
-		outputString = outputString.replace(']',' ')
-		return outputString
-
 	def getNumDefaulters(self):
 		return len(self.defaultersList)
 
-	def getNonWhitespace(self, line):
-		wsRegex = re.compile('\s')
-		total   = 0
-		for char in line:
-			if not wsRegex.match(char):
-				total += 1
-		return total
-
-	def getCharges(self):
-		return self.charges
-
-	def isCharge(self, line):
-		for charge in self.charges:
-			if charge in line:
-				return True
-		return False
-
-	def getCharge(self, line):
-		for charge in self.charges:
-			if charge in line:
-				return charge
-		return ''
-
-	def listDefaulters(self):
-		for defaulter in self.defaultersList:
-			name    = defaulter.getName()
-			address = defaulter.getAddress()
-			print name, '|',  address
 
 	def getDefaulter(self, name):
 		tokens = name.upper().replace(',',' ').split(' ')
@@ -325,30 +174,6 @@ class ProcessDefaulters:
 			if result:
 				return defaulter
 		return None
-
-	def printSummary(self):
-		profSet       = Set()
-		profList      = {}
-		finesList     = {}
-
-		for defaulter in self.defaultersList:
-			prof = defaulter.getProfession()
-			fine = defaulter.getFine()
-			if prof in profSet:
-				profList[prof] += 1.0
-				finesList[prof] += fine
-			else:
-				profList[prof] = 1.0
-				finesList[prof] = fine
-				profSet.add(prof)
-
-		for prof in profSet:
-			if profList[prof] > 3.0:
-				print prof, profList[prof], finesList[prof]
-
-		for defaulter in self.defaultersList:
-			if defaulter.hasSentence():
-				defaulter.printDetails()
 
 def getConfig(filename):
 	""" 
