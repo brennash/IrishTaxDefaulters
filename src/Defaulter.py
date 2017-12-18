@@ -27,6 +27,13 @@ class Defaulter:
 		self.lines        = []
 		self.chargeList   = []
 
+		# The index positions for defaulter details
+		self.nameIndexList       = None
+		self.addressIndexList    = None
+		self.occupationIndexList = None
+		self.sentenceIndexList   = None
+
+
 		# Set the default encoding
 		reload(sys)
 		sys.setdefaultencoding('utf-8')
@@ -36,37 +43,58 @@ class Defaulter:
 
 		# Now tokenize the line 
 		tokens = re.split(' {2,20}',line)
+		fineRegex = re.compile('^[0-9]+(.){1}[0-9]{2}')
 
-		if len(tokens) >= 3:
+
+		if len(tokens) >= 4:
 			self.name       = tokens[0]
 			self.address    = tokens[1]
 			self.occupation = tokens[2]
+			self.fineStr    = tokens[3]
+			self.fineValue  = self.toFloat(self.fineStr)
+
+			if len(tokens) == 5 and tokens[4].isdigit():
+				self.numCharges = int(tokens[4])
+			elif len(tokens) == 6 and not tokens[4].isdigit():
+				self.sentence   = tokens[4]
+				self.numCharges = int(tokens[5])
 		else:
 			if self.logger is not None:
 				self.logger.error('Cannot parse Defaulter - {0}'.format(line))
 
 	def update(self, line):
 
-		nameRegex           = re.compile('^[A-Z0-9]')
-		tokens              = re.split(' {2,20}',line)
-		if len(tokens) == 1 and nameRegex.match(line):
-			self.name = self.name + ' ' + tokens[0]
-		else:
-			nameIndexList       = self.getIndexList(self.lines[0], self.name, 0)
-			addressIndexList    = self.getIndexList(self.lines[0], self.address, nameIndexList[1])
-			occupationIndexList = self.getIndexList(self.lines[0], self.occupation, addressIndexList[1])
+		# Only set the indexes once, for the first line for each defaulter
+		if self.nameIndexList is None:
+			self.nameIndexList       = self.getIndexList(self.lines[0], self.name, 0)
+			self.addressIndexList    = self.getIndexList(self.lines[0], self.address, self.nameIndexList[1])
+			self.occupationIndexList = self.getIndexList(self.lines[0], self.occupation, self.addressIndexList[1])
+			self.sentenceIndexList   = self.getIndexList(self.lines[0], self.sentence, self.occupationIndexList[1])
 
-			if nameIndexList[0] != -1:
-				subString = line[nameIndexList[0]:nameIndexList[1]].strip()
+		try:
+			if self.nameIndexList[0] != -1:
+				subString = line[self.nameIndexList[0]:self.nameIndexList[1]].strip()
 				self.name = (self.name + ' ' + subString).strip()
 
-			if addressIndexList[0] != -1:
-				subString = line[addressIndexList[0]:addressIndexList[1]].strip()
+			if self.addressIndexList[0] != -1:
+				subString = line[self.addressIndexList[0]:self.addressIndexList[1]].strip()
 				self.address = (self.address + ' ' + subString).strip()
 
-			if occupationIndexList[0] != -1:
-				subString = line[occupationIndexList[0]:occupationIndexList[1]].strip()
+			if self.occupationIndexList[0] != -1:
+				subString = line[self.occupationIndexList[0]:self.occupationIndexList[1]].strip()
 				self.occupation = (self.occupation + ' ' + subString).strip()
+
+			if self.sentenceIndexList[0] != -1:
+				subString = line[self.sentenceIndexList[0]:self.sentenceIndexList[1]].strip()
+				self.sentence = (self.sentence + ' ' + subString).strip()
+
+
+
+		except Exception, err:
+			print err
+			if self.logger is not None:
+				self.logger.error('Defaulter:update() - {0}'.format(err))
+
 
 	def getIndexList(self, line, searchTerm, beginIndex):
 		""" 
@@ -123,8 +151,6 @@ class Defaulter:
 		result += '{0}, '.format(self.getCounty())
 		result += '{0}'.format(self.getProfession())
 		return result
-
-
 
 
 	def setFine(self, line, lineNumber):
@@ -271,23 +297,15 @@ class Defaulter:
 			,'BULGARIA'
 			,'ALBANIA']
 
+	def toFloat(self, floatStr):
+		str = floatStr.replace(',','')
+		try:
+			return float(str)
+		except:
+			return 0.0
+
 	def addCharge(self, charge):
 		self.chargeList.append(charge)
-
-	def toFloat(self, strValue, lineNumber):
-		""" 
-		Returns a positive float value from a given string input, e.g., 6,000.00.
-		"""
-		try:
-			floatStr = ''
-			for char in strValue:
-				if char.isdigit() or char == '.':
-					floatStr = floatStr + char
-			return float(floatStr)
-		except:
-			if self.logger is not None:
-				self.logger.error('Error converting {0} to float on line {1}'.format(strValue, lineNumber))
-			return 0.0
 
 	def getName(self):
 		return self.name
@@ -295,8 +313,11 @@ class Defaulter:
 	def getAddress(self):
 		return self.address
 
-	def getFine(self):
-		return self.fine
+	def getFineString(self):
+		return self.fineStr
+
+	def getFineValue(self):
+		return self.fineValue
 
 	def getOccupation(self):
 		return self.occupation
